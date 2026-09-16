@@ -1,0 +1,181 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8">
+<title>入院中の対話から SOAP ができるまで（事例：急性心不全 入院 3 日目）</title>
+<style>
+body{font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;font-size:14.5px;line-height:1.7;color:#1a1a1a;background:#fafafa;margin:0}
+.wrap{max-width:1040px;margin:0 auto;padding:24px 28px 80px;background:#fff}
+h1{font-size:22px;border-bottom:3px solid #0f766e;padding-bottom:6px}
+h2{font-size:18px;margin-top:38px;border-left:6px solid #0f766e;padding:6px 10px;background:#eef6f5}
+h3{font-size:15.5px;margin-top:22px;border-bottom:1px solid #ccd;padding-bottom:3px}
+table{border-collapse:collapse;width:100%;font-size:13px;margin:8px 0 14px}
+th,td{border:1px solid #b9c4d0;padding:5px 8px;vertical-align:top}
+th{background:#e8eef5}
+.box{border:1px solid #cfd8e3;border-radius:8px;padding:10px 16px;background:#f5f8fc;margin:10px 0}
+.box.key{background:#fff7e0;border-color:#e6c46b}
+.box.red{background:#fbe9e9;border-color:#e0a0a0}
+pre{background:#f3f3f3;padding:10px;overflow-x:auto;font-size:12.5px;line-height:1.55;white-space:pre-wrap}
+code{background:#eee;padding:0 4px;border-radius:3px;font-size:12.5px}
+.meta{color:#555;font-size:13px}
+.dlg{border-collapse:collapse;width:100%;font-size:13px}
+.dlg td{border:1px solid #d5dde6;padding:5px 8px;vertical-align:top}
+.dlg td.n{width:2.2em;color:#888;text-align:right}
+.dlg td.who{width:5.5em;font-weight:bold}
+.dlg td.tag{width:19em;font-size:12px;color:#333;background:#f7f9fb}
+.S{color:#1d4ed8;font-weight:bold}.O{color:#15803d;font-weight:bold}.A{color:#b45309;font-weight:bold}.P{color:#7c3aed;font-weight:bold}.E{color:#0f766e;font-weight:bold}.T{color:#0e7490;font-weight:bold}.R{color:#b91c1c;font-weight:bold}
+.src{display:inline-block;background:#e8eef5;border-radius:8px;padding:0 6px;font-size:11.5px;margin-left:4px;color:#334}
+.ns{font-weight:bold;color:#0f766e}.pt{font-weight:bold;color:#555}.fam{font-weight:bold;color:#7a5}
+</style></head><body><div class="wrap">
+<h1>入院中の対話から SOAP ができるまで：事例で見る「病棟では何が違うか」</h1>
+<p class="meta">スマートホスピタル開発チーム向け｜2026-09-16｜執筆：Claude Fable 5.1（架空の事例．外来版 <a href="example_outpatient_soap.html">example_outpatient_soap.html</a> と同じ患者の，3 週間前の入院中の場面．臨床判断は看護師・医師が行う前提の説明資料）</p>
+
+<div class="box key">
+<b>要点（外来版との違い 4 つ）</b>
+<ol style="margin:4px 0 0">
+<li><b>会話は 1 回で終わらず，勤務ごとに繰り返す．</b>「昨夜からの変化」「今日の目標（離床の段階・体重）」「これから行うケア」を短く確認し，勤務の終わりに看護問題ごとの SOAP を書く．</li>
+<li><b>S より O が厚い．</b>24 時間の体重・出納・時間尿・モニタ・点滴の設定・肺音・浮腫など，看護師自身の測定と観察が中心になる．患者の言葉（S）は「自覚症状の変化」と「理解の確認」に絞られる．</li>
+<li><b>ケアの実施（T-P）が P に入る．</b>外来では指導が P の中心だったが，病棟では「体位・酸素・利尿薬静注後の観察・トイレ誘導・環境整備」など，行ったケアとその反応が記録の核になる．</li>
+<li><b>複数の看護問題が同時に動く．</b>この事例では #1 体液量過剰，#2 転倒・転落のリスク，#3 活動耐性の低下を同じ訪室で評価し，退院に向けて #4 セルフケアが加わる．</li>
+</ol>
+</div>
+
+<h2>1. 前提：病棟の 1 日と記録のタイミング</h2>
+<table>
+<tr><th style="width:18%">時刻（日勤の例）</th><th>看護師の動き</th><th>記録・データ</th></tr>
+<tr><td>8:30</td><td>夜勤からの申し送り（夜間の呼吸苦・尿量・転倒なし・睡眠）</td><td>前勤務の SOAP・経過表（フローシート）を読む</td></tr>
+<tr><td>9:00</td><td>訪室・バイタル・体重・浮腫・肺音・点滴確認・患者との会話（本事例の対話）</td><td>O の大半がここで集まる．S は「昨夜からどうか」</td></tr>
+<tr><td>9:30</td><td>利尿薬（静注）投与→尿量・血圧を追う，トイレ誘導の準備</td><td>T-P の実施と反応（時間尿）</td></tr>
+<tr><td>10:30</td><td>離床（心臓リハの段階に沿って歩行），起立時血圧</td><td>#3 活動耐性・#2 転倒の O</td></tr>
+<tr><td>随時</td><td>医師の回診に同席，指示の変更を受ける</td><td>P の「指示に基づく対応」</td></tr>
+<tr><td>15:00</td><td>指導（体重ノートの練習，塩分の話）</td><td>#4 セルフケアの E-P</td></tr>
+<tr><td>16:30</td><td>看護問題ごとに SOAP を書き，夜勤へ申し送り</td><td>SOAP レコード（<code>problem_id</code> 付き）</td></tr>
+</table>
+
+<h2>2. 事例の設定</h2>
+<table>
+<tr><th style="width:18%">患者</th><td>佐藤 幸子さん，74 歳，女性．慢性心不全（心筋梗塞後，EF 低下）の急性増悪で 3 日前に緊急入院．入院時は起坐呼吸・SpO2 低下・両下腿浮腫，体重 56.8 kg（普段 52 kg 台）</td></tr>
+<tr><th>現在（入院 3 日目）</th><td>酸素 2 L/分（経鼻），利尿薬は朝に静注．モニタ装着．安静度は「病室内歩行可（見守り）」に昨日から拡大．体重 55.2 kg（入院時 −1.6 kg）</td></tr>
+<tr><th>看護問題（入院時に立案）</th><td>#1 体液量過剰（うっ血・浮腫）がある（<code>fluid_overload</code>）／#2 転倒・転落のリスクがある（<code>fall_risk</code>：74 歳・利尿薬静注・夜間頻尿・酸素チューブ・モニタ）／#3 活動耐性が低下している（<code>activity_intolerance</code>）／#4 疾患と治療の理解が不足しセルフケアができない（<code>knowledge_selfcare</code>：退院に向けて 2 日目から追加）．褥瘡・せん妄はリスク評価で低リスク（計画は立てず，毎日再評価）</td></tr>
+<tr><th>今日の場面</th><td>日勤の看護師が 9:00 に訪室．アプリは患者の 4 つの看護問題の O-P・T-P を表示し，バイタル・体重は音声から O にプレフィルする</td></tr>
+</table>
+
+<h2>3. 対話の例（発話ごとに，どこへ入るかを付記）</h2>
+<p class="meta">凡例：<span class="S">S</span> 患者・家族の言葉／<span class="O">O</span> 測定・観察／<span class="T">T-P</span> ケアの実施／<span class="E">E-P</span> 指導の実施／<span class="R">Red flag</span> 急変サインの確認／<span class="src">出典 ID</span> は看護計画（<code>fluid_overload</code>，<code>fall_risk</code>，<code>activity_intolerance</code>，<code>knowledge_selfcare</code>）と疾患別リスト（<code>acute_heart_failure</code>）の項目</p>
+
+<h3>① 訪室：昨夜からの変化と緊急性（#1 の O-P，急変サイン）</h3>
+<table class="dlg">
+<tr><td class="n">1</td><td class="who ns">看護師</td><td>おはようございます．夜は眠れましたか．横になって息は苦しくなかったですか．</td><td class="tag">#1 O-P「夜間の呼吸苦・起坐呼吸の程度（枕の数・ベッドの角度）」／疾患リスト「起坐呼吸」<span class="src">fluid_overload.OP</span></td></tr>
+<tr><td class="n">2</td><td class="who pt">患者</td><td>ベッドを少し倒しても大丈夫になりました．夜中に一度トイレに起きただけです．</td><td class="tag"><span class="S">S</span>「ベッドを倒しても呼吸苦なし，夜間排尿 1 回」（入院時は起坐位でしか眠れず→改善）</td></tr>
+<tr><td class="n">3</td><td class="who ns">看護師</td><td>咳や痰は．ピンク色の泡のような痰は出ていませんか．</td><td class="tag"><span class="R">Red flag</span> 疾患リスト「ピンク色泡沫痰（肺水腫の悪化）」<span class="src">acute_heart_failure.red_flags</span></td></tr>
+<tr><td class="n">4</td><td class="who pt">患者</td><td>咳は減りました．痰は出ません．</td><td class="tag"><span class="S">S</span>「咳は減少，痰なし」（陰性所見）</td></tr>
+<tr><td class="n">5</td><td class="who ns">看護師</td><td>（測定・観察）血圧 112/68，脈 84 で整，酸素 2 リットルで SpO2 96%，呼吸数 18．胸の音は昨日より下の方だけに湿った音が残っています．すねを押すと，へこみは昨日より浅いですね．首の血管の張りも軽くなっています．</td><td class="tag"><span class="O">O</span> #1 O-P「呼吸：呼吸数・SpO2」「肺の副雑音（湿性ラ音の範囲）」「浮腫：圧痕の程度」「頸静脈怒張」／疾患リスト「バイタル・身体所見」<span class="src">acute_heart_failure.observation.vitals_physical</span></td></tr>
+<tr><td class="n">6</td><td class="who ns">看護師</td><td>今朝の体重は 55.2 kg，昨日から 0.6 kg 減りました．昨日の尿は 1,850 mL，飲んだ量と点滴を合わせて 1,300 mL なので，出る方が多い状態が続いています．</td><td class="tag"><span class="O">O</span> #1 O-P「体重（毎日同じ条件），水分出納」／疾患リスト「時間尿量・水分出納・毎日の体重」．体重と出納は<b>本人と一緒に見る</b>（#1 T-P「推移を本人と一緒に見る」＝退院後の習慣づけ）</td></tr>
+</table>
+
+<h3>② ケアの実施と反応（#1 の T-P：利尿薬静注→観察，#2 の T-P：先回りの排泄援助）</h3>
+<table class="dlg">
+<tr><td class="n">7</td><td class="who ns">看護師</td><td>これから朝の利尿剤を点滴から入れます．30 分から 2 時間くらいでトイレが近くなるので，尿意を感じたら我慢せずナースコールを押してください．酸素の管が届く範囲でトイレまで一緒に行きます．</td><td class="tag"><span class="T">T-P</span> #1 T-P「利尿薬静注後は尿量の立ち上がり・血圧・症状を追う」／#2 T-P「投与後はトイレ誘導を先回りで準備」「ルート類の長さを確保」<span class="src">fall_risk.TP</span>／<span class="E">E-P</span> #1 E-P「利尿薬でトイレが近くなること，起き上がるときはゆっくり」</td></tr>
+<tr><td class="n">8</td><td class="who pt">患者</td><td>昨日は間に合わないかと思って，急いで立ったらふらっとしました．</td><td class="tag"><span class="S">S</span>「昨日，急いで立ち上がりふらつき」→ #2 の関連因子（利尿薬・起立性低血圧）の裏づけ</td></tr>
+<tr><td class="n">9</td><td class="who ns">看護師</td><td>それは大事な情報です．起き上がるときは，座って，足を下ろして，立つ，と一段ずつ．めまいがしたら座って待ってください．（起立時の血圧を測る）座位 112/68 → 立位 1 分 100/64，3 分 104/66，めまいの訴えなし．</td><td class="tag"><span class="E">E-P</span> #2 E-P「起き上がるときはゆっくり，座ってから立つ」／<span class="O">O</span> #2 アセスメント「起立性低血圧の確認（臥位 5 分安静後→立位 1 分・3 分）」：収縮期 −12 mmHg，症状なし＝基準未満だが注意<span class="src">fall_risk.assessment.scales</span></td></tr>
+<tr><td class="n">10</td><td class="who ns">看護師</td><td>ベッドの高さは立ちやすい位置にしておきます．靴は，かかとのある方に替えていただけましたね．ナースコールはここです．</td><td class="tag"><span class="T">T-P</span> #2 T-P「移乗時は足底が床につく高さ」「履物はかかとのある滑りにくいもの」「ナースコールを手の届く位置に」<span class="src">fall_risk.TP</span>／<span class="O">O</span> 環境チェック（履物変更済・コール位置・足元灯）</td></tr>
+</table>
+
+<h3>③ 離床と活動（#3 の O-P・T-P）</h3>
+<table class="dlg">
+<tr><td class="n">11</td><td class="who ns">看護師</td><td>昨日から病室の中を歩いてよいことになりました．今日は 10 時半ごろ，私と一緒に廊下の途中まで歩いてみましょう．歩く前と後に血圧と酸素を測ります．</td><td class="tag"><span class="T">T-P</span> #3 T-P「離床は施設の心臓リハビリプロトコルに沿って段階的に．各段階の前後でバイタルと症状を確認」「時間帯は利尿薬の直後を避け午前中の体力のあるときに」<span class="src">activity_intolerance.TP</span></td></tr>
+<tr><td class="n">12</td><td class="who pt">患者</td><td>昨日は部屋の中を歩いただけで少し息が上がりました．でも座ればすぐ戻ります．</td><td class="tag"><span class="S">S</span>「室内歩行で軽い息切れ，座位で速やかに回復」→ #3 O-P「活動中の症状（会話ができるか）」「安静時の値に戻るまでの時間」</td></tr>
+<tr><td class="n">13</td><td class="who ns">看護師</td><td>（10:30 歩行後）歩行前 BP 110/66，HR 82，SpO2 96%．廊下 20 m 往復後 BP 118/70，HR 96，SpO2 94%，会話可能，胸痛なし，モニタで不整脈なし．3 分で HR 86 に戻りました．</td><td class="tag"><span class="O">O</span> #3 O-P「活動前・活動中・活動後の血圧・脈拍・SpO2」「心電図モニタ：活動中・活動後の不整脈」／中止基準への該当なし（基準は施設プロトコル）</td></tr>
+</table>
+
+<h3>④ 食事・飲水と理解の確認（#1 の T-P，#4 の O-P・E-P）</h3>
+<table class="dlg">
+<tr><td class="n">14</td><td class="who ns">看護師</td><td>お水は，このコップで 1 日 1.2 リットルまでとお話ししましたが，どのくらい飲めていますか．のどの渇きはどうですか．</td><td class="tag">#1 T-P「水分制限：許可量を分け方まで決め，飲水量を見える化」／#1 O-P「飲水量（コップの数・氷・薬の水）」<span class="src">fluid_overload.TP</span></td></tr>
+<tr><td class="n">15</td><td class="who pt">患者</td><td>昨日はコップ 5 杯，1 リットルくらい．薬を飲む水も数えています．渇いたときは氷をもらいました．</td><td class="tag"><span class="S">S</span>「飲水約 1.0 L，薬の水も計上，口渇時は氷片で対応」→ #4 O-P「セルフケアの実行：飲水量を意識しているか」</td></tr>
+<tr><td class="n">16</td><td class="who fam">夫</td><td>家では味噌汁を毎食出していたんですが，やめた方がいいですか．</td><td class="tag"><span class="S">S</span>（家族）「自宅では味噌汁を毎食」→ #4 O-P「食事：塩分の多い食品の摂り方」（食事を作る人の情報）</td></tr>
+<tr><td class="n">17</td><td class="who ns">看護師</td><td>汁物は塩分が多いので，1 日 1 杯にして具を多めにするのが現実的です．退院前に栄養士さんからも具体的にお話があります．今日の昼食は減塩食なので，どのくらい食べられるか見せてください．</td><td class="tag"><span class="E">E-P</span> #4 E-P「塩分は汁物・漬物・加工食品に多いこと，具体的に減らせる物を一緒に決める」／#1 T-P「管理栄養士と協働」／<span class="O">O</span> 昼食摂取量（主食 8 割・副食 7 割）</td></tr>
+<tr><td class="n">18</td><td class="who ns">看護師</td><td>今朝，体重計に乗るのはご自分でできましたね．退院したら毎朝，トイレのあと・朝食の前に同じ服装で測ってノートに書きます．増え方の目安は先生から聞いた数字を手帳に書きましょう．</td><td class="tag"><span class="E">E-P</span> #4 E-P「毎朝同じ条件で体重を測り手帳に書く．増え方の目安と連絡先は手帳に」（一律の数値は言わず主治医の指示に接続）／<span class="O">O</span> #4 O-P「入院中の体重測定・記録を自分で行えているか」＝できている</td></tr>
+<tr><td class="n">19</td><td class="who pt">患者</td><td>体重が増えたら，水がたまってきたということですね．</td><td class="tag"><span class="S">S</span> ティーチバック→ #4 評価指標「悪化のサインを自分の言葉で言える」（部分的に達成．連絡の目安と連絡先は未確認）</td></tr>
+</table>
+
+<h3>⑤ 医師への報告（回診時）</h3>
+<table class="dlg">
+<tr><td class="n">20</td><td class="who ns">看護師</td><td>（医師へ）体重は昨日から −0.6 kg で 55.2，出納は −550，起坐呼吸は消失，湿性ラ音は下肺野のみ，浮腫は軽減です．起立時に収縮期が 12 下がりますが症状はありません．昨日ふらつきがあったので，利尿薬の投与時刻と離床時の見守りを続けます．</td><td class="tag"><span class="P">P</span>「報告と指示に基づく対応」／#1 特記事項「うっ血がとれたかは体重・呼吸・浮腫・頸静脈で総合的に見る」／#1 特記事項「利尿が進む時期は出しすぎに転じやすい（血圧低下・起立性めまい）→ 脱水の計画へ切り替える時期を医師と共有」</td></tr>
+</table>
+
+<h2>4. どの情報が SOAP のどこにつながるか（対応表）</h2>
+<table>
+<tr><th style="width:20%">データ源</th><th style="width:30%">項目（実際の文言）</th><th style="width:12%">SOAP の欄</th><th>この事例での使われ方</th></tr>
+<tr><td>#1 <code>fluid_overload</code> O-P</td><td>体重（毎日同じ条件），水分出納，時間尿量／呼吸：呼吸数・SpO2・起坐呼吸の程度／肺の副雑音の範囲／浮腫：部位・圧痕・頸静脈怒張／利尿薬の投与量と投与後の尿量・血圧・症状／飲水量・塩分摂取</td><td><span class="O">O</span>（一部 <span class="S">S</span>）</td><td>訪室で測る・見る項目そのもの．起坐呼吸と飲水量は本人の言葉なので S</td></tr>
+<tr><td>#1 T-P</td><td>呼吸が楽な体位／利尿薬静注後の観察／投与時刻の調整とトイレ誘導の先回り／水分制限の見える化／減塩食と持ち込み食品の確認／体重・出納を本人と一緒に見る</td><td><span class="P">P</span>（実施記録）</td><td>行ったケアとその反応が P に入る．「本人と一緒に見る」は退院後のセルフケア（#4）への橋渡し</td></tr>
+<tr><td>#1 評価指標・特記事項</td><td>体重が目標に向かって減り尿量が確保／起坐呼吸・夜間呼吸苦・湿性ラ音が減る／浮腫が軽い／出しすぎのサイン（血圧低下・起立性めまい）</td><td><span class="A">A</span></td><td>指標に照らして「改善傾向」，同時に「出しすぎへの転換に注意」と判断する根拠</td></tr>
+<tr><td>疾患別リスト <code>acute_heart_failure</code> 急変サイン</td><td>SpO2 低下・呼吸数増加・ピンク色泡沫痰／血圧低下＋四肢冷感＋尿量減少／新しい頻脈性不整脈</td><td><span class="S">S</span>・<span class="O">O</span>→<span class="A">A</span></td><td>毎回の訪室で必ず確認する項目．今回はすべて陰性（陰性所見として記録）</td></tr>
+<tr><td>#2 <code>fall_risk</code> O-P・アセスメント</td><td>起立時の血圧・脈拍の変化，めまい／排泄パターン（利尿薬後）／ルート類／環境（高さ・柵・履物・コール）／起立性低血圧の確認手順</td><td><span class="O">O</span>（ふらつきの訴えは <span class="S">S</span>）</td><td>起立性低血圧の測定値と環境チェックが O．「昨日ふらついた」は S で，関連因子の裏づけ</td></tr>
+<tr><td>#2 T-P・E-P</td><td>投与後のトイレ誘導の先回り／ベッドの高さ／履物／段階的な起き上がり／ナースコール</td><td><span class="P">P</span></td><td>実施したケアと指導．固定時刻の誘導ではなく「投与後 30 分〜2 時間」のパターンに合わせる（特記事項）</td></tr>
+<tr><td>#3 <code>activity_intolerance</code> O-P・T-P</td><td>活動前中後のバイタルと回復時間／活動中の症状（会話可能か）・モニタ／段階的離床・時間帯の選択・中止基準は施設プロトコル</td><td><span class="O">O</span>→<span class="A">A</span>，<span class="P">P</span></td><td>歩行前後の数値が O，中止基準に該当しないことが A，次の段階へ進めるかの提案が P（判断は医師・リハビリと共有）</td></tr>
+<tr><td>#4 <code>knowledge_selfcare</code> O-P</td><td>本人の理解（ティーチバック）／入院中の体重測定を自分で行えているか／飲水量を意識しているか／食事：塩分の多い食品</td><td><span class="S">S</span>・<span class="O">O</span>→<span class="A">A</span></td><td>「自分で体重計に乗れた」は O，「体重が増えたら水がたまった」は S．家族（夫）の発言も S として誰の言葉か残す</td></tr>
+<tr><td>#4 E-P・評価指標</td><td>毎朝同じ条件で体重を測り手帳に書く／塩分の多い食品を一緒に決める／連絡の目安と連絡先を手帳に／悪化のサインと連絡先を自分の言葉で言える</td><td><span class="P">P</span>，<span class="A">A</span></td><td>実施した指導が P，指標の達成度（部分達成：連絡の目安は未確認）が A．退院前の目標に向けた残りの課題が次の P</td></tr>
+<tr><td>厚労省様式（看護必要度 B 項目・せん妄チェックリスト・褥瘡危険因子）</td><td>寝返り・移乗・食事摂取・衣服の着脱・指示が通じる・危険行動／せん妄リスク因子／褥瘡の危険因子</td><td>（記録票）</td><td>毎日の評価票として別に記録．せん妄・褥瘡は低リスクのまま（計画は立てないが再評価を続ける）</td></tr>
+</table>
+
+<h2>5. 完成した SOAP（日勤の看護記録）</h2>
+<pre>#1 体液量過剰（うっ血・浮腫）がある
+S：「ベッドを少し倒しても大丈夫になった」「夜中にトイレに 1 回起きただけ」「咳は減った，痰は出ない」
+   飲水は昨日コップ 5 杯約 1.0 L（薬の水を含む），口渇時は氷片で対応．
+O：体重 55.2 kg（前日 −0.6，入院時 −1.6）．前日出納：飲水 1,000＋点滴 300／尿 1,850 mL（−550）．
+   BP 112/68，HR 84 整，RR 18，SpO2 96%（O2 2 L 経鼻），BT 36.5．湿性ラ音は両下肺野のみ（前日は中肺野まで）．
+   両下腿圧痕浮腫は前日より浅い．座位で頸静脈怒張は軽度．ピンク色泡沫痰なし．9:30 利尿薬静注，12:00 までの尿量 900 mL．
+   昼食摂取 主食 8 割・副食 7 割（減塩食）．
+A：体重・出納・呼吸・肺音・浮腫のいずれも改善方向で，うっ血は軽減している．
+   一方，起立時に収縮期 −12 mmHg（症状なし）と前日のふらつきがあり，利尿が進む時期の「出しすぎ」への転換に注意が必要．
+P：利尿薬静注後の尿量・血圧・症状の観察を継続．体重・出納は毎朝本人と一緒に表で確認．
+   飲水量の見える化（目盛り付きコップ・記録表）を継続，減塩食の摂取量と持ち込み食品を夫と確認．
+   医師へ上記を報告済（回診）．血圧低下・めまい・尿量過多・K/Cr の変化があれば発見時に報告し，
+   脱水の計画への切り替え時期を医師と共有する．評価：明朝の体重・出納で継続評価．
+
+#2 転倒・転落のリスクがある
+S：「昨日，間に合わないと思って急いで立ったらふらっとした」
+O：起立時血圧 座位 112/68 → 立位 1 分 100/64，3 分 104/66，めまいなし．利尿薬静注後 30 分〜2 時間に排尿 3 回，いずれもコールあり見守り歩行．
+   環境：ベッドは移乗しやすい高さ・ストッパー確認，履物はかかとのある靴に変更済，ナースコール・眼鏡は手元，酸素チューブは歩行範囲を確保，足元灯 ON．
+A：利尿薬静注後の切迫した尿意と起立時の血圧低下が重なり，転倒リスクは引き続き高い．環境整備とコール行動は確立し，段階的起き上がりの理解あり．
+P：利尿薬後の排泄パターン（30 分〜2 時間）に合わせた先回りの声かけを継続（眠っていれば起こさない）．段階的起き上がりを毎回確認．
+   起立時血圧は明日も測定．安静度拡大（廊下歩行）の初回は見守り．夜勤へ：夜間の排尿時はコールで対応，ふらつき時は座らせて報告．
+
+#3 活動耐性が低下している
+S：「部屋の中を歩いただけで少し息が上がるが，座ればすぐ戻る」
+O：10:30 廊下 20 m 往復（見守り）．歩行前 BP 110/66，HR 82，SpO2 96% → 歩行後 118/70，96，94%，会話可能，胸痛なし，モニタで不整脈なし，3 分で HR 86 に回復．
+A：施設の中止基準に該当する症状・変化なく，現段階の負荷は許容範囲．回復も速い．
+P：午前中・利尿薬直後を避けた時間帯で段階的に距離を延ばす（次段階への進行は医師・リハビリと共有）．活動前後のバイタルと症状の記録を継続．
+
+#4 疾患と治療の理解が不足し，セルフケアができない
+S：「体重が増えたら，水がたまってきたということ」．夫「家では味噌汁を毎食出していた」
+O：今朝の体重測定を自分で実施できた．飲水量を自分で数えている．昼食（減塩食）摂取 主食 8 割・副食 7 割．
+A：体重測定・飲水管理は入院中に実行できており，悪化のサインの意味も言えた（短期目標 1・2 は達成に近い）．
+   連絡の目安と連絡先の理解は未確認．食事を作る夫が塩分の具体策を求めており，指導の対象に含める必要がある．
+P：汁物は 1 日 1 杯・具を多めにする案を夫と共有．退院前に管理栄養士の指導を依頼．
+   次回（明日）は手帳の「連絡の目安」欄を一緒に記入し，連絡先と夜間休日の窓口を本人に言ってもらう（評価指標 1）．</pre>
+
+<h2>6. 外来版との対比（同じ患者・同じ看護問題で何が変わるか）</h2>
+<table>
+<tr><th style="width:18%"></th><th>入院中（本資料）</th><th>外来（前回の資料）</th></tr>
+<tr><td>会話の頻度・長さ</td><td>勤務ごとに短く繰り返す（訪室・ケア中・回診・指導と分散）</td><td>受診時に 1 回，約 8 分にまとめる</td></tr>
+<tr><td>S の中身</td><td>昨夜からの変化，ケアへの反応，理解の確認（ティーチバック），家族の発言</td><td>前回受診からの変化，自宅での生活・服薬・体重ノートの解釈</td></tr>
+<tr><td>O の中身</td><td>看護師の測定と観察が中心（体重・出納・時間尿・肺音・浮腫・モニタ・点滴設定・活動前後のバイタル・環境）</td><td>その場のバイタルと観察，患者が持参した記録（体重ノート）</td></tr>
+<tr><td>A の物差し</td><td>各看護問題の評価指標（改善／悪化の方向），急変サイン，中止基準</td><td>急変サインへの該当，退院時計画の評価指標，セルフケアの不足点</td></tr>
+<tr><td>P の中身</td><td>実施したケア（T-P）とその反応，指示に基づく対応，次勤務への申し送り，次の段階の提案</td><td>医師への報告，実施した指導（E-P），次回までの約束</td></tr>
+<tr><td>同時に動く問題</td><td>3〜4 個（体液・転倒・活動・セルフケア）＋毎日のリスク再評価（褥瘡・せん妄）</td><td>1〜2 個に絞る（体液・セルフケア）</td></tr>
+<tr><td>アプリの役割</td><td>看護問題ごとの O-P チェックリスト，音声からの数値プレフィル，ケア実施の記録，勤務終わりの SOAP 下書き（問題ごと）</td><td>段階的問診の提示，S/O の下書き，急変サインの警告，E-P 候補の提示</td></tr>
+</table>
+
+<h2>7. アプリの中で起きること（病棟の日勤）</h2>
+<table>
+<tr><th style="width:16%">タイミング</th><th style="width:30%">アプリの動き</th><th>使うデータ</th></tr>
+<tr><td>申し送り</td><td>患者の 4 つの看護問題と前勤務の SOAP・評価日を表示．今日の重点（急変サイン・中止基準・起立性低血圧）を上に出す</td><td>SOAP レコード（<code>problem_id</code>），看護計画の評価指標</td></tr>
+<tr><td>訪室中</td><td>各看護問題の O-P をチェックリストで提示．音声から体重・血圧・脈拍・SpO2・体温を O にプレフィル．「起坐呼吸なし」「痰なし」など聞き終えた項目に ✓（陰性所見として保持）</td><td>#1〜#4 の O-P，疾患別リストの急変サイン，既存アプリの vital プレフィル</td></tr>
+<tr><td>ケア実施時</td><td>T-P の項目から「実施した」を選ぶと時刻付きで P（実施記録）に入る．利尿薬静注後の観察タイマー（尿量・血圧）と排泄援助のリマインド</td><td>#1・#2 の T-P，特記事項（投与後 30 分〜2 時間）</td></tr>
+<tr><td>離床時</td><td>活動前後のバイタルを対で記録し，回復時間を自動計算．中止基準は施設プロトコルの値を設定して照合</td><td>#3 の O-P・T-P</td></tr>
+<tr><td>回診</td><td>医師へ報告する要約（体重・出納・呼吸・浮腫・起立時血圧）を自動生成．指示の変更を P に反映</td><td>#1 評価指標・特記事項</td></tr>
+<tr><td>勤務終わり</td><td>看護問題ごとの SOAP 下書きを生成（S は本人・家族の発言を話者付きで，O は測定値と観察，P は実施記録と指導）．A は看護師が書く．評価日と次勤務への申し送りを登録</td><td>SOAP レコード（<code>problem_id</code>），看護計画の評価</td></tr>
+</table>
+
+<div class="box red"><b>注意</b>：架空の事例です．体重・出納・血圧の数値と中止基準・連絡の目安は説明用で，実際は施設の心臓リハビリプロトコル・心不全手帳・主治医の指示に置き換えます．A と P の判断は看護師が行い，アプリは O-P の提示・数値のプレフィル・実施記録・下書きまでを担います．</div>
+
+<p class="meta">関連：<a href="example_outpatient_soap.html">外来版の事例</a>／<a href="primer_soap_nursing.html">やさしい解説書</a>／<a href="app/index.html">看護計画・疾患別リストのビューア</a></p>
+</div></body></html>

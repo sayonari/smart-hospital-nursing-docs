@@ -1,0 +1,174 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8">
+<title>外来での対話から SOAP ができるまで（事例：慢性心不全の再診）</title>
+<style>
+body{font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;font-size:14.5px;line-height:1.7;color:#1a1a1a;background:#fafafa;margin:0}
+.wrap{max-width:1040px;margin:0 auto;padding:24px 28px 80px;background:#fff}
+h1{font-size:22px;border-bottom:3px solid #0f766e;padding-bottom:6px}
+h2{font-size:18px;margin-top:38px;border-left:6px solid #0f766e;padding:6px 10px;background:#eef6f5}
+h3{font-size:15.5px;margin-top:22px;border-bottom:1px solid #ccd;padding-bottom:3px}
+table{border-collapse:collapse;width:100%;font-size:13px;margin:8px 0 14px}
+th,td{border:1px solid #b9c4d0;padding:5px 8px;vertical-align:top}
+th{background:#e8eef5}
+.box{border:1px solid #cfd8e3;border-radius:8px;padding:10px 16px;background:#f5f8fc;margin:10px 0}
+.box.key{background:#fff7e0;border-color:#e6c46b}
+.box.red{background:#fbe9e9;border-color:#e0a0a0}
+pre{background:#f3f3f3;padding:10px;overflow-x:auto;font-size:12.5px;line-height:1.55;white-space:pre-wrap}
+code{background:#eee;padding:0 4px;border-radius:3px;font-size:12.5px}
+.meta{color:#555;font-size:13px}
+.dlg{border-collapse:collapse;width:100%;font-size:13px}
+.dlg td{border:1px solid #d5dde6;padding:5px 8px;vertical-align:top}
+.dlg td.n{width:2.2em;color:#888;text-align:right}
+.dlg td.who{width:5.5em;font-weight:bold}
+.dlg td.tag{width:19em;font-size:12px;color:#333;background:#f7f9fb}
+.S{color:#1d4ed8;font-weight:bold}.O{color:#15803d;font-weight:bold}.A{color:#b45309;font-weight:bold}.P{color:#7c3aed;font-weight:bold}.E{color:#0f766e;font-weight:bold}.R{color:#b91c1c;font-weight:bold}
+.src{display:inline-block;background:#e8eef5;border-radius:8px;padding:0 6px;font-size:11.5px;margin-left:4px;color:#334}
+.ns{font-weight:bold;color:#0f766e}.pt{font-weight:bold;color:#555}
+</style></head><body><div class="wrap">
+<h1>外来での対話から SOAP ができるまで：事例で見る「何を聞き，どの情報がどこに入るか」</h1>
+<p class="meta">スマートホスピタル開発チーム向け｜2026-09-16｜執筆：Claude Fable 5.1（架空の事例．臨床判断は看護師・医師が行う前提の説明資料．患者名は架空で既存の架空患者とは重複させていない）</p>
+
+<div class="box key">
+<b>要点（3 行）</b>
+<ol style="margin:4px 0 0">
+<li>外来の看護師は「症状の変化 → 生活とセルフケア → 服薬 → 測定」の順に短時間で聞き，<b>患者の言葉は S，測った値と見た所見は O</b>に振り分けます．</li>
+<li><b>疾患別リストの観察項目が「何を聞く・何を見る」の辞書</b>，<b>標準看護計画の O-P／E-P／評価指標が「どう判断し，何を教えるか」の辞書</b>，問診バンクが「聞く順番（緊急性→性状→背景）」です．</li>
+<li>外来の看護 SOAP は<b>看護問題ごと</b>（例：#1 体液量過剰のリスク，#2 セルフケア）に書き，A は「計画の評価指標に照らしてどうか」，P は「指導したこと・医師へ報告したこと・次回までの約束」になります．</li>
+</ol>
+</div>
+
+<h2>1. 前提：外来の看護記録における SOAP の位置づけ</h2>
+<ul>
+<li>病棟で立てた看護問題は，退院後の外来でも<b>継続して評価</b>されます．心不全の患者なら，退院時に「#1 体液量過剰（うっ血）のリスク」「#2 セルフケア（体重・塩分・症状観察）の習得」が残っていることが多く，外来ではこの 2 つを毎回短く評価します．</li>
+<li>外来看護師の記録は，医師の診察前の<b>予診</b>（症状・生活・服薬・バイタル）と，診察後の<b>指導</b>をまとめて，看護問題ごとに SOAP で書きます（施設によりフォーカスチャーティングやチェック式の予診票と併用）．</li>
+<li>医師の SOAP は「診断と治療の判断」，看護師の SOAP は「生活と安全とセルフケアの判断」です．同じ会話から両方が作られますが，A と P の中身が違います（第 5 節で対比）．</li>
+</ul>
+
+<h2>2. 事例の設定</h2>
+<table>
+<tr><th style="width:18%">患者</th><td>佐藤 幸子さん，74 歳，女性．慢性心不全（心筋梗塞後，EF 低下）．3 週間前に心不全増悪で入院し，10 日で退院．今日は退院後 2 回目の心不全外来（再診）</td></tr>
+<tr><th>退院時の看護問題</th><td>#1 体液量過剰（うっ血・浮腫）のリスクがある（<code>fluid_overload</code>）／#2 疾患と治療の理解が不足しセルフケアができない（<code>knowledge_selfcare</code>）</td></tr>
+<tr><th>薬</th><td>利尿薬（朝），β遮断薬，ARNI，MRA，SGLT2 阻害薬</td></tr>
+<tr><th>生活</th><td>夫と二人暮らし．食事は本人が作る．体重ノートを持参</td></tr>
+<tr><th>今日の場面</th><td>看護師が診察前の予診を行う（約 8 分）．アプリは音声を書き起こし，「息切れ・むくみ」モジュールと，患者の看護問題 #1・#2 に紐づく確認項目を表示している</td></tr>
+</table>
+
+<h2>3. 対話の例（発話ごとに，どこへ入るかを付記）</h2>
+<p class="meta">凡例：<span class="S">S</span> 患者の言葉（主観）／<span class="O">O</span> 測定・観察（客観）／<span class="E">E-P</span> 指導の実施／<span class="R">Red flag</span> 急変サインの確認／<span class="src">出典 ID</span> は疾患別リスト（<code>chronic_heart_failure</code>）・看護計画（<code>fluid_overload</code>，<code>knowledge_selfcare</code>）・問診バンク（<code>dyspnea_edema</code>）の項目</p>
+
+<h3>① 来室，緊急性の確認（問診バンク 第 1 段階）</h3>
+<table class="dlg">
+<tr><td class="n">1</td><td class="who ns">看護師</td><td>佐藤さん，こんにちは．今日は歩いてこられて息は大丈夫でしたか．</td><td class="tag"><span class="R">Red flag</span> 安静時・軽労作の呼吸困難 <span class="src">hf_rest_dyspnea</span></td></tr>
+<tr><td class="n">2</td><td class="who pt">患者</td><td>駐車場からここまでで，ちょっとハアハアしました．座ったら落ち着きました．</td><td class="tag"><span class="S">S</span>「駐車場からの歩行で息切れ，座ると落ち着く」</td></tr>
+<tr><td class="n">3</td><td class="who ns">看護師</td><td>夜はどうですか．横になると苦しくて起きることはありますか．枕は前と同じ高さですか．</td><td class="tag"><span class="R">Red flag</span> 起坐呼吸・夜間呼吸困難 <span class="src">hf_orthopnea，hf_pnd</span>／疾患リスト「夜間の呼吸苦・枕の数」</td></tr>
+<tr><td class="n">4</td><td class="who pt">患者</td><td>一昨日から，枕をもう一つ足しています．夜中に一回，息苦しくて起きました．</td><td class="tag"><span class="S">S</span>「一昨日から枕を 1 つ追加，夜間 1 回呼吸苦で覚醒」→ 急変サインに該当（要報告）</td></tr>
+</table>
+
+<h3>② 主訴と経過の絞り込み（第 2 段階：活動度・むくみ・体重）</h3>
+<table class="dlg">
+<tr><td class="n">5</td><td class="who ns">看護師</td><td>息切れが出るのは，どのくらいの動きからですか．前回来たときと比べてどうでしょう．</td><td class="tag">疾患リスト「息切れの程度の変化（どのくらいの動作で出るか）」<span class="src">hf_exertion_threshold</span></td></tr>
+<tr><td class="n">6</td><td class="who pt">患者</td><td>前は買い物に行けたけど，今週は家の中の階段でも切れます．</td><td class="tag"><span class="S">S</span>「前回は買い物可，今週は階段で息切れ」（活動度の低下）</td></tr>
+<tr><td class="n">7</td><td class="who ns">看護師</td><td>足のむくみはどうですか．靴下の跡が残ったり，靴がきつくなったりは．</td><td class="tag">疾患リスト「むくみ（靴がきつい・靴下の跡）」<span class="src">hf_leg_edema</span></td></tr>
+<tr><td class="n">8</td><td class="who pt">患者</td><td>靴下の跡が夕方くっきり残ります．靴も少しきついです．</td><td class="tag"><span class="S">S</span>「夕方に靴下の跡，靴がきつい」</td></tr>
+<tr><td class="n">9</td><td class="who ns">看護師</td><td>体重ノートを見せてください．（一緒に見る）退院時 52.0 kg，先週 52.4，一昨日 53.6，今朝 54.1 ですね．</td><td class="tag"><span class="O">O</span> 自宅体重の推移（記録を看護師が確認した客観情報）／疾患リスト「体重の推移（自宅の記録を一緒に見る）」／計画 #1 O-P「体重（毎日同じ条件）」</td></tr>
+<tr><td class="n">10</td><td class="who pt">患者</td><td>毎朝トイレのあとに測っています．増えてるなとは思ったけど，食べ過ぎかなと．</td><td class="tag"><span class="S">S</span>「毎朝排尿後に測定」「増加に気づいたが食べ過ぎと解釈」→ 計画 #2 O-P「症状の自覚（本人の解釈と観察の差）」</td></tr>
+</table>
+
+<h3>③ 生活とセルフケア（計画 #2 の O-P）</h3>
+<table class="dlg">
+<tr><td class="n">11</td><td class="who ns">看護師</td><td>この 1 週間で，食事で変わったことはありますか．汁物や漬物，外食は．</td><td class="tag">計画 #2 O-P「食事：塩分の多い食品の摂り方」／疾患リスト「セルフケアの実行状況（減塩）」</td></tr>
+<tr><td class="n">12</td><td class="who pt">患者</td><td>孫が来て，土日はお寿司と味噌汁を毎食．塩分は気をつけていたつもりですが．</td><td class="tag"><span class="S">S</span>「週末に寿司・味噌汁を毎食（塩分負荷の増加）」</td></tr>
+<tr><td class="n">13</td><td class="who ns">看護師</td><td>水分はどのくらい飲んでいますか．のどの渇きはありますか．</td><td class="tag">計画 #2 O-P「飲水量と口渇」／疾患リスト「皮膚の乾燥・口渇（利尿薬による脱水）」の裏返しの確認</td></tr>
+<tr><td class="n">14</td><td class="who pt">患者</td><td>指示どおり 1.2 リットルくらい．渇きはないです．</td><td class="tag"><span class="S">S</span>「飲水約 1.2 L/日，口渇なし」</td></tr>
+</table>
+
+<h3>④ 服薬（疾患リスト「薬の副作用」・計画 #2 O-P「服薬」）</h3>
+<table class="dlg">
+<tr><td class="n">15</td><td class="who ns">看護師</td><td>お薬は飲めていますか．飲み忘れや，具合が悪くてやめた薬はありますか．</td><td class="tag"><span class="src">hf_med_adherence</span>／計画 #2 O-P「飲み忘れ・自己判断の中止」</td></tr>
+<tr><td class="n">16</td><td class="who pt">患者</td><td>朝の利尿剤，孫が来ていた土日は出かけるからと 2 日飛ばしました．あとは飲んでいます．</td><td class="tag"><span class="S">S</span>「利尿薬を土日 2 日間自己判断で休薬」（うっ血の誘因の候補）</td></tr>
+<tr><td class="n">17</td><td class="who ns">看護師</td><td>立ちくらみや，脈が遅い感じ，市販の痛み止めを使ったことは．</td><td class="tag">疾患リスト「β遮断薬：徐脈・立ちくらみ」／計画 #2 O-P「市販薬（NSAIDs など悪化させる薬）」</td></tr>
+<tr><td class="n">18</td><td class="who pt">患者</td><td>ないです．痛み止めも使っていません．</td><td class="tag"><span class="S">S</span>「立ちくらみ・徐脈感なし，市販薬なし」（聞いて<b>陰性</b>だった項目．未聴取ではない）</td></tr>
+</table>
+
+<h3>⑤ 測定と観察（O）</h3>
+<table class="dlg">
+<tr><td class="n">19</td><td class="who ns">看護師</td><td>血圧と酸素を測りますね．足も見せてください．（測定・観察）</td><td class="tag"><span class="O">O</span> BP 118/72，HR 88 整，SpO2 94%（室内気），呼吸数 22，体温 36.4．両下腿に圧痕浮腫（すねを押すとへこみが残る），頸静脈怒張は座位で軽度．外来体重 54.0 kg（前回 52.4，+1.6 kg）／疾患リスト「バイタル・身体所見」の 6 項目／計画 #1 O-P「呼吸」「浮腫」「循環」</td></tr>
+</table>
+
+<h3>⑥ 指導（E-P の実施．診察後に行うことが多い）</h3>
+<table class="dlg">
+<tr><td class="n">20</td><td class="who ns">看護師</td><td>ノートを見ると，一昨日から 1 日で 1 kg 以上増えて，枕を足した日と重なっていますね．これは「水がたまり始めたサイン」です．食べ過ぎではなく，塩分と，利尿剤を飛ばしたことが重なった可能性があります．</td><td class="tag"><span class="E">E-P</span> 計画 #2 E-P「体重・むくみ・息切れは水がたまり始めたサイン」／体重ノートを一緒に振り返る（疾患リスト「ケア」）</td></tr>
+<tr><td class="n">21</td><td class="who ns">看護師</td><td>手帳の連絡の目安は「2〜3 日で 2 kg 増，むくみ，息切れが増えたら電話」でしたね．今回はそれに当たるので，増えた日のうちに電話してもらえると，薬の調整で入院を防げます．出かける日も利尿剤は飛ばさず，時間をずらす方法を先生に相談しましょう．</td><td class="tag"><span class="E">E-P</span> 計画 #2 E-P「連絡する症状と連絡先」／疾患リスト 指導「2〜3 日で 2 kg 増…連絡」「薬は症状がなくても続ける」／計画 #1 E-P「利尿薬でトイレが近くなること」</td></tr>
+<tr><td class="n">22</td><td class="who pt">患者</td><td>体重が急に増えたら，食べ過ぎと思わずに電話する．利尿剤は飛ばさない，ですね．</td><td class="tag"><span class="S">S</span> ティーチバック（本人の言葉で言えた）→ 計画 #2 評価指標「悪化のサインと連絡の目安を自分の言葉で言える」</td></tr>
+</table>
+
+<h2>4. どの情報が SOAP のどこにつながるか（対応表）</h2>
+<p>ここが「（2）どの情報を使って」の答えです．データ源の項目は，会話では「聞く順番と質問文」，記録では「S／O のどこに入れるか」，判断では「A の根拠（急変サイン・評価指標）」，指導では「P（E-P）」として使われます．</p>
+<table>
+<tr><th style="width:20%">データ源</th><th style="width:30%">項目（実際の ID・文言）</th><th style="width:12%">SOAP の欄</th><th>この事例での使われ方</th></tr>
+<tr><td>問診バンク <code>dyspnea_edema</code> 第 1 段階</td><td>hf_rest_dyspnea，hf_orthopnea，hf_pnd，hf_fluid_buildup</td><td><span class="S">S</span>＋<span class="A">A</span></td><td>会話の最初に緊急性を確認．起坐呼吸・夜間呼吸困難が「はい」→ S に記録し，A で「急変サインに該当」と判断する根拠</td></tr>
+<tr><td>問診バンク 第 2・3 段階</td><td>hf_exertion_threshold，hf_leg_edema，hf_med_adherence</td><td><span class="S">S</span></td><td>活動度（NYHA の考え方），浮腫，服薬アドヒアランスを S として聞き取る</td></tr>
+<tr><td>疾患別リスト <code>chronic_heart_failure</code>「症状」</td><td>息切れの程度の変化／夜間の呼吸苦・枕の数／むくみ（靴下の跡）／体重の推移（記録を一緒に見る）</td><td><span class="S">S</span>（体重ノートは <span class="O">O</span>）</td><td>再診で「前回との比較」を聞く項目．体重ノートは患者の申告ではなく看護師が記録を確認した値なので O</td></tr>
+<tr><td>疾患別リスト「バイタル・身体所見」</td><td>血圧・脈拍／SpO2・呼吸数／体重（前回差）／下腿浮腫・頸静脈怒張／肺の副雑音／皮膚の乾燥・口渇</td><td><span class="O">O</span></td><td>測定・観察の項目そのもの．アプリでは音声から数値をプレフィルできる（体温・血圧・脈拍・SpO2・体重）</td></tr>
+<tr><td>疾患別リスト「薬の副作用」</td><td>利尿薬：脱水・低 K／β遮断薬：徐脈・立ちくらみ／SGLT2：脱水・感染</td><td><span class="S">S</span>（陰性所見）</td><td>聞いて「なし」だった項目は「陰性」として S に残す．聞かなかった項目（未聴取）と区別する</td></tr>
+<tr><td>疾患別リスト「急変サイン」</td><td>数日で 2 kg 以上の体重増加＋むくみ・息切れ／安静時の息切れ・横になれない・夜間の呼吸苦</td><td><span class="A">A</span>→<span class="P">P</span></td><td>S・O がこれに当たるかを判断し，当たれば「診察前に医師へ報告」が P の第一項目になる</td></tr>
+<tr><td>看護計画 #1 <code>fluid_overload</code> O-P</td><td>体重（毎日同じ条件）／呼吸（起坐呼吸の程度・枕の数）／浮腫（部位・圧痕）／循環（血圧・脈拍・リズム）</td><td><span class="O">O</span>・<span class="S">S</span></td><td>病棟で立てた計画の観察項目を外来でも同じ項目で追う（継続評価）</td></tr>
+<tr><td>看護計画 #1 評価指標</td><td>体重が目標に向かって減っている／起坐呼吸・夜間呼吸苦が減っている／浮腫が軽い</td><td><span class="A">A</span></td><td>指標に照らして「悪化」と判断する（今回はすべて逆方向）</td></tr>
+<tr><td>看護計画 #2 <code>knowledge_selfcare</code> O-P</td><td>本人の理解（ティーチバック）／セルフケアの実行（体重測定・減塩・飲水）／症状の自覚（本人の解釈と観察の差）／服薬（自己判断の中止・市販薬）</td><td><span class="S">S</span>→<span class="A">A</span></td><td>「増加に気づいたが食べ過ぎと解釈」「利尿薬を自己判断で休薬」が，セルフケアの何が不足かの根拠になる</td></tr>
+<tr><td>看護計画 #2 E-P</td><td>体重・むくみ・息切れは水がたまるサイン／連絡の目安と連絡先／薬は症状がなくても続ける／塩分の多い食品</td><td><span class="P">P</span></td><td>実施した指導の文言をそのまま P に書く．次回までの約束もここ</td></tr>
+<tr><td>看護計画 #2 評価指標</td><td>悪化のサイン 3 つと連絡の目安を自分の言葉で言える</td><td><span class="A">A</span></td><td>発話 22 のティーチバックで「言えた」＝指標達成（ただし行動は次回確認）</td></tr>
+<tr><td>厚労省 標準的な質問票（common_intake）</td><td>服薬（血圧・脂質）／既往（脳卒中・心臓病・腎臓）／喫煙</td><td><span class="S">S</span>（初診時）</td><td>再診では変化がなければ省略．初診・新患ではここから始める</td></tr>
+</table>
+
+<h2>5. 完成した SOAP（看護記録）と医師記録との違い</h2>
+<div class="box"><b>外来看護記録（看護問題ごと）</b></div>
+<pre>#1 体液量過剰（うっ血・浮腫）のリスクがある
+S：駐車場からの歩行で息切れ，座ると落ち着く．前回は買い物に行けたが今週は階段で息切れ．
+   一昨日から枕を 1 つ追加，夜中に 1 回息苦しさで覚醒．夕方に靴下の跡，靴がきつい．
+   週末（土日）は寿司と味噌汁を毎食．朝の利尿薬を土日 2 日間自己判断で休薬．
+   飲水約 1.2 L/日，口渇なし．立ちくらみ・徐脈感なし，市販薬の使用なし．
+O：自宅体重 退院時 52.0 → 先週 52.4 → 一昨日 53.6 → 今朝 54.1 kg（毎朝排尿後）．外来体重 54.0 kg（前回 +1.6）．
+   BP 118/72，HR 88 整，RR 22，SpO2 94%（室内気），BT 36.4．両下腿に圧痕浮腫，座位で軽度の頸静脈怒張．
+A：2 日で約 1.5 kg の体重増加に起坐呼吸・夜間呼吸困難・下腿浮腫を伴い，急変サイン（数日で 2 kg 前後の増加＋むくみ・息切れ，横になれない）に該当．
+   誘因として塩分負荷と利尿薬の自己休薬が重なった可能性．計画 #1 の評価指標はいずれも悪化方向．
+P：診察前に医師へ報告（体重推移・起坐呼吸・浮腫・休薬）．診察までは座位で待機し，症状増悪時は即時対応．
+   利尿薬の調整と次回受診の間隔は医師の指示による．増悪時の連絡の目安を再確認（下記 #2）．
+
+#2 疾患と治療の理解が不足し，セルフケアができない
+S：「毎朝トイレのあとに測っている」「増えているとは思ったが食べ過ぎかと思った」
+   「出かけるので利尿剤を 2 日飛ばした」．指導後「急に増えたら食べ過ぎと思わず電話する．利尿剤は飛ばさない」と自分の言葉で説明．
+O：体重ノートは毎日記載あり（測定条件は統一）．手帳の連絡の目安の欄は記入済みだが，今回は電話に至らなかった．
+A：体重測定と記録は習慣化できている（計画の短期目標 2 は達成）．一方，増加の意味づけ（水がたまるサイン）と連絡行動，
+   外出時の服薬継続が不足．塩分負荷の場面（来客・外食）への具体策が未定．ティーチバックでは連絡の目安を言えた．
+P：指導実施：体重増加＝水がたまるサインであること，連絡の目安と連絡先（手帳の欄を一緒に確認），薬は症状がなくても続けること，
+   外出日の利尿薬の時間調整は医師に相談するよう案内．来客時・外食時の塩分の工夫（汁物を残す・漬物を控える）を夫と共有するよう依頼．
+   次回受診時に，体重ノートと「電話した／しなかった」の振り返りを行う．評価日：次回受診．</pre>
+
+<div class="box"><b>医師記録（同じ会話・同じ測定から）</b></div>
+<pre>S：退院後 3 週．一昨日から起坐呼吸・PND，労作時息切れ悪化．週末に塩分過多と利尿薬 2 日自己中断．
+O：BW 54.0（+1.6 kg），BP 118/72，HR 88 整，SpO2 94% RA，RR 22．両下腿浮腫，JVD 軽度．（採血・胸部 X 線・心電図の結果）
+A：慢性心不全の増悪（うっ血）．誘因：塩分負荷＋利尿薬中断．
+P：（利尿薬の調整・検査・再診間隔・入院適応の判断は医師が決める）</pre>
+<p>違い：医師は「診断と治療」を A・P に書き，看護師は「急変サインへの該当と報告」「セルフケアの何が不足か」「何を指導し次回何を評価するか」を書きます．S と O はほぼ共通なので，<b>アプリが下書きするのは S と O</b>，A と P は看護師・医師がそれぞれの計画・判断で書く，という分担になります．</p>
+
+<h2>6. アプリの中で起きること（この事例の時系列）</h2>
+<table>
+<tr><th style="width:16%">タイミング</th><th style="width:28%">アプリの動き</th><th>使うデータ</th></tr>
+<tr><td>来室時</td><td>患者の看護問題（#1，#2）と主訴チップ「息切れ・むくみ」を表示．第 1 段階（緊急性）の質問を上に出す</td><td>看護計画 #1・#2 の O-P，問診バンク第 1 段階</td></tr>
+<tr><td>会話中（発話 1〜18）</td><td>音声認識の書き起こしから，聞き終えた項目に ✓ を付け，未聴取の項目を残す．「起坐呼吸あり」などが急変サインに当たると赤く表示</td><td>疾患別リスト「症状」「薬の副作用」「急変サイン」，問診バンク第 2・3 段階</td></tr>
+<tr><td>測定時（発話 19）</td><td>血圧・脈拍・SpO2・体温・体重を音声から O にプレフィル．体重は前回値との差を自動表示</td><td>疾患別リスト「バイタル・身体所見」，既存アプリの vital プレフィル</td></tr>
+<tr><td>診察前</td><td>S／O の下書きを生成（聴取済み項目のみ．未聴取は「未確認」のまま）．「医師へ報告すべき所見」候補を列挙</td><td>急変サイン，計画 #1 評価指標</td></tr>
+<tr><td>診察後（発話 20〜22）</td><td>E-P の候補（計画 #2 の指導文）を提示し，実施したものを看護師が選ぶと P に入る．ティーチバックの発話を S に追加</td><td>看護計画 #2 E-P・評価指標</td></tr>
+<tr><td>記録確定</td><td>看護師が S／O を原情報と照合して修正し，A と P を書いて確定．計画 #2 の評価欄に「次回受診」を登録</td><td>SOAP レコードに <code>problem_id</code>（#1，#2）を付けて保存</td></tr>
+</table>
+
+<h2>7. 他の外来場面ではどう変わるか</h2>
+<ul>
+<li><b>初診の胸痛</b>：看護問題がまだ無いので，問診バンク「胸痛」モジュールの第 1 段階（突然発症・安静時 20 分以上・冷汗）で緊急性を先に確認し，該当すれば問診を中断して医師へ．S は発症様式・性状・放散・持続，O はバイタル・12 誘導心電図．A は「急性冠症候群を否定できない」，P は「即時報告・安静・モニタ」．看護問題は診察後に「胸痛がある（<code>chest_pain_acute</code>）」「不安がある」として立てる．</li>
+<li><b>失神の精査目的の再診</b>：問診バンク「失神」（Calgary の 7 問）と疾患別リスト「失神」の観察項目で，前駆症状・状況・回復の様子を S に，起立時血圧・心電図を O に．看護問題は「転倒・転落のリスク」「不安」．</li>
+<li><b>ペースメーカ植込み後の定期外来</b>：疾患別リスト「植込みデバイス管理」の観察項目（創部・電磁干渉・作動時の症状）が S／O の項目．看護問題は「感染のリスク」「セルフケア」．</li>
+</ul>
+
+<div class="box red"><b>注意</b>：この事例は説明のための架空のものです．数値（体重増加の目安・連絡基準）は施設の心不全手帳と主治医の指示に置き換えます．看護師のアセスメント（A）と計画（P）は看護師の判断であり，アプリは S／O の下書きと候補の提示までを担います．</div>
+
+<p class="meta">関連：<a href="primer_soap_nursing.html">やさしい解説書</a>／<a href="app/index.html">看護計画・疾患別リストのビューア</a>／<a href="demo/">段階的問診デモ</a></p>
+</div></body></html>

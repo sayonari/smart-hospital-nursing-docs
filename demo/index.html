@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>段階的絞り込み問診デモ（スマートホスピタル）</title>
+<style>
+  :root {
+    --bg: #f4f6f8;
+    --card: #ffffff;
+    --accent: #1c6dd0;
+    --accent-dark: #0f4c9c;
+    --danger: #c62828;
+    --warn: #b26a00;
+    --muted: #667085;
+    --border: #dde3ea;
+    --pd: #2e7d32;
+    --cc: #1565c0;
+    --self: #6a1b9a;
+    --nc: #b71c1c;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", "Meiryo", sans-serif;
+    background: var(--bg);
+    color: #222;
+    font-size: 15px;
+    line-height: 1.5;
+    padding-bottom: 40px;
+  }
+  header {
+    background: var(--accent-dark);
+    color: #fff;
+    padding: 12px 14px;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+  }
+  header h1 { font-size: 16px; margin: 0 0 4px; }
+  header p { font-size: 11px; margin: 0; opacity: 0.85; }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 10px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px; }
+  .chip {
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    background: #fff;
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .chip.active { background: var(--accent); color: #fff; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    margin: 0 10px 12px;
+  }
+  .card h2 { font-size: 14px; margin: 0 0 8px; color: var(--accent-dark); }
+  textarea {
+    width: 100%;
+    min-height: 60px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px;
+    font-size: 13px;
+    font-family: inherit;
+    resize: vertical;
+  }
+  .btnrow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  button.action {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  button.action.secondary { background: #fff; color: var(--accent); border: 1px solid var(--accent); }
+  button.action:active { opacity: 0.8; }
+  .grid { display: grid; grid-template-columns: 1fr; gap: 0; }
+  @media (min-width: 760px) {
+    .grid { grid-template-columns: 1.15fr 0.85fr; align-items: start; }
+  }
+  .stage { border: 1px solid var(--border); border-radius: 10px; margin-bottom: 10px; overflow: hidden; }
+  .stage.locked { opacity: 0.55; }
+  .stage-head {
+    background: #eef3fa;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-weight: bold;
+    color: var(--accent-dark);
+  }
+  .stage-body { padding: 8px 10px; }
+  .item { border-bottom: 1px dashed var(--border); padding: 8px 0; }
+  .item:last-child { border-bottom: none; }
+  .item .q { font-size: 13.5px; margin-bottom: 6px; }
+  .badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+  .badge {
+    display: inline-block;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 5px;
+    color: #fff;
+    white-space: nowrap;
+  }
+  .badge.pd { background: var(--pd); }
+  .badge.cc { background: var(--cc); }
+  .badge.self { background: var(--self); }
+  .badge.nc { background: var(--nc); }
+  .badge.struct { background: #607d8b; }
+  .ans-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .ans-btn {
+    border: 1px solid var(--border);
+    background: #fff;
+    border-radius: 6px;
+    padding: 5px 10px;
+    font-size: 12.5px;
+    cursor: pointer;
+  }
+  .ans-btn.selected.yes { background: #ffe1e1; border-color: var(--danger); color: var(--danger); }
+  .ans-btn.selected.no { background: #e6f4ea; border-color: var(--pd); color: var(--pd); }
+  .ans-btn.selected.unknown { background: #eee; border-color: #999; color: #555; }
+  .ans-btn.selected.choice { background: #e3edfb; border-color: var(--accent); color: var(--accent-dark); }
+  input.value-input, input.text-input {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-size: 13px;
+    width: 100%;
+    max-width: 260px;
+  }
+  .flagged { background: #fff4f4; border-left: 3px solid var(--danger); padding-left: 7px; }
+  .side h3 { font-size: 13px; margin: 0 0 6px; color: var(--accent-dark); }
+  .redflag-list, .todo-list, .cond-list { list-style: none; margin: 0; padding: 0; }
+  .redflag-list li, .todo-list li, .cond-list li {
+    font-size: 12.5px;
+    padding: 5px 6px;
+    border-radius: 6px;
+    margin-bottom: 4px;
+  }
+  .redflag-list li { background: #fdeaea; color: var(--danger); }
+  .todo-list li { background: #eef3fa; color: var(--accent-dark); }
+  .cond-list li { background: #fff7e6; color: var(--warn); }
+  .score-box { font-size: 12.5px; margin-bottom: 8px; padding: 6px 8px; background: #f7f9fb; border-radius: 6px; }
+  .score-box b { color: var(--accent-dark); }
+  .empty-note { font-size: 12.5px; color: var(--muted); }
+  footer {
+    max-width: 920px;
+    margin: 20px auto 0;
+    padding: 10px 14px;
+    font-size: 11px;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+  }
+  pre#json-view {
+    max-height: 400px;
+    overflow: auto;
+    background: #1e1e1e;
+    color: #d4d4d4;
+    padding: 10px;
+    font-size: 11px;
+    border-radius: 8px;
+  }
+  .hint { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .research-badge {
+    display: inline-block;
+    background: var(--self);
+    color: #fff;
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 5px;
+    margin-left: 6px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>段階的絞り込み問診デモ（循環器外来・研究プロトタイプ）</h1>
+  <p>ライセンス上問題のない素材のみで構成．診断ツールではなく確認項目の提示のみ．</p>
+</header>
+
+<div class="wrap">
+
+  <div class="card">
+    <h2>主訴を選ぶ／会話テキストから自動選択</h2>
+    <div class="chips" id="chip-area"></div>
+    <textarea id="conv-text" placeholder="例：昨日から胸が締め付けられるように痛くて，坂道を上ると息切れもします"></textarea>
+    <div class="btnrow">
+      <button class="action" id="btn-analyze">会話テキストから主訴モジュールを推定</button>
+      <button class="action secondary" id="btn-soap">SOAPへ書き出し</button>
+      <button class="action secondary" id="btn-json">JSONを表示</button>
+      <button class="action secondary" id="btn-reset">回答をリセット</button>
+    </div>
+  </div>
+
+  <div class="card" id="soap-card" style="display:none;">
+    <h2>S: 聞き取りチェック（聴取済みのみ）</h2>
+    <textarea id="soap-output" readonly style="min-height:140px;"></textarea>
+  </div>
+
+  <div class="card" id="json-card" style="display:none;">
+    <h2>question_bank.json（埋め込みデータ）</h2>
+    <pre id="json-view"></pre>
+  </div>
+
+  <div id="module-area"></div>
+
+</div>
+
+<footer>
+  本デモは診断ツールではありません．確認すべき問診項目とライセンス上の出典を提示するのみで，最終的な臨床判断は医療者が行ってください．<br>
+  バッジ凡例：<span class="badge pd">PD</span> パブリックドメイン／<span class="badge cc">CC互換</span> CC BY 4.0互換（PDL1.0）／<span class="badge self">自前実装</span> スコア・分類の自前実装／<span class="badge nc">NC研究用</span> CC BY-NC-SA（非商用）／<span class="badge struct">構造参考</span> 問診票の構造のみ参考
+</footer>
+
+<script id="qb-data" type="application/json">
+{"meta": {"version": "0.1", "created": "2026-09-15", "note": "スマートホスピタル向け『ガイドライン由来の段階的絞り込み問診』実例プロトタイプ．ライセンス上問題のない5系統の素材（自前実装可のスコア・厚労省標準的な質問票・NHLBI/CDCのパブリックドメイン症状説明・WHO PEN非商用モジュール・病院問診票の共通構造）のみで構成．JCS/ACC-AHA/ESC/NICEの文言・図表は転載していない（referencesに参照のみ記載）．診断ツールではなく，確認すべき項目を提示するデモ．"}, "modules": [{"id": "chest_pain", "label": "胸痛・胸部不快感", "trigger_keywords": ["胸が痛い", "胸痛", "締め付け", "圧迫感", "みぞおち", "胸の痛み", "胸が苦しい"], "stages": [{"id": "s1_redflag", "label": "第1段階：緊急性の確認（Red flag）", "items": [{"id": "cp_present", "question": "現在，胸の痛みや圧迫感がありますか？", "type": "yesno", "source": {"name": "循環器内科問診票の共通構造（昭和医科大学病院ほか5施設）", "url": "", "kind": "structure_reference"}, "license": "自前実装（構造のみ参考・文言は独自）", "commercial_ok": true}, {"id": "cp_onset_sudden", "question": "痛みは突然（数秒〜1分以内に最も強い痛みに達する形で）始まりましたか？", "type": "yesno", "source": {"name": "ADD-RS（Aortic Dissection Detection Risk Score，Rogers et al. Circulation 2011）", "url": "https://doi.org/10.1161/CIRCULATIONAHA.110.988568", "kind": "score_item"}, "license": "自前実装（事実・変数の実装，出典明記）", "commercial_ok": true, "flag_if": "yes", "flag_label": "大動脈解離を疑う所見（ADD-RS 高リスク疼痛）", "suggests": ["大動脈解離"]}, {"id": "cp_worst_ever", "question": "これまでに経験したことのないほど激しい痛みですか？", "type": "yesno", "source": {"name": "ADD-RS（Rogers et al. Circulation 2011）", "url": "https://doi.org/10.1161/CIRCULATIONAHA.110.988568", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true, "flag_if": "yes", "flag_label": "大動脈解離を疑う所見（ADD-RS 高リスク疼痛）", "suggests": ["大動脈解離"]}, {"id": "cp_tearing", "question": "引き裂かれる・裂けるような痛みですか？", "type": "yesno", "source": {"name": "ADD-RS（Rogers et al. Circulation 2011）", "url": "https://doi.org/10.1161/CIRCULATIONAHA.110.988568", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true, "flag_if": "yes", "flag_label": "大動脈解離を疑う所見（ADD-RS 高リスク疼痛）", "suggests": ["大動脈解離"]}, {"id": "cp_pulse_bp_diff", "question": "左右の腕で脈の強さや血圧に差があると言われたことがありますか？", "type": "yesno", "source": {"name": "ADD-RS（Rogers et al. Circulation 2011）", "url": "https://doi.org/10.1161/CIRCULATIONAHA.110.988568", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true, "flag_if": "yes", "flag_label": "大動脈解離を疑う所見（ADD-RS 高リスク所見）", "suggests": ["大動脈解離"]}, {"id": "cp_family_aortic", "question": "ご家族に大動脈解離・大動脈瘤と診断された方はいますか？", "type": "yesno", "source": {"name": "ADD-RS（Rogers et al. Circulation 2011）", "url": "https://doi.org/10.1161/CIRCULATIONAHA.110.988568", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true, "flag_if": "yes", "flag_label": "大動脈解離を疑う所見（ADD-RS 高リスク素因）", "suggests": ["大動脈解離"]}, {"id": "cp_marfan", "question": "マルファン症候群など，結合組織の病気と言われたことがありますか？", "type": "yesno", "source": {"name": "ADD-RS（Rogers et al. Circulation 2011）", "url": "https://doi.org/10.1161/CIRCULATIONAHA.110.988568", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true, "flag_if": "yes", "flag_label": "大動脈解離を疑う所見（ADD-RS 高リスク素因）", "suggests": ["大動脈解離"]}, {"id": "cp_rest_dyspnea", "question": "安静にしていても息苦しさがありますか？", "type": "yesno", "source": {"name": "NHLBI Health Topics（Heart Attack / Coronary Heart Disease Symptoms）", "url": "https://www.nhlbi.nih.gov/health/heart-attack/symptoms", "kind": "public_health_info"}, "license": "パブリックドメイン（米国政府著作物，出典表示のうえ利用）", "commercial_ok": true, "flag_if": "yes", "flag_label": "急性冠症候群・心不全を疑う所見", "suggests": ["急性冠症候群", "心不全"]}, {"id": "cp_cold_sweat", "question": "理由のない冷や汗をかきましたか？", "type": "yesno", "source": {"name": "NHLBI Health Topics（Heart Attack Symptoms）／CDC Heart Attack", "url": "https://www.nhlbi.nih.gov/health/heart-attack/symptoms", "kind": "public_health_info"}, "license": "パブリックドメイン", "commercial_ok": true, "flag_if": "yes", "flag_label": "急性冠症候群を疑う所見", "suggests": ["急性冠症候群"]}, {"id": "cp_syncope", "question": "痛みとともに気を失った，または失いそうになりましたか？", "type": "yesno", "source": {"name": "循環器内科問診票の共通構造（阪南市民病院ほか）", "url": "", "kind": "structure_reference"}, "license": "自前実装（構造のみ参考）", "commercial_ok": true, "flag_if": "yes", "flag_label": "重篤な原因（急性冠症候群・大動脈解離・肺塞栓）を疑う所見", "suggests": ["急性冠症候群", "大動脈解離", "肺塞栓"]}, {"id": "cp_unilateral_leg_swelling", "question": "片方の脚だけに腫れや痛みがありますか？", "type": "yesno", "source": {"name": "Wells score（DVT/PE，Wells et al. Lancet 1997／NEJM 2003）", "url": "https://doi.org/10.1056/NEJMoa023153", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true, "flag_if": "yes", "flag_label": "肺塞栓・深部静脈血栓症を疑う所見", "suggests": ["肺塞栓"]}, {"id": "cp_hemoptysis", "question": "血の混じった痰が出ましたか？", "type": "yesno", "source": {"name": "Wells score（PE）／PERC rule（Kline et al. J Thromb Haemost 2004）", "url": "https://doi.org/10.1111/j.1538-7836.2004.00790.x", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true, "flag_if": "yes", "flag_label": "肺塞栓を疑う所見", "suggests": ["肺塞栓"]}, {"id": "cp_recent_surgery", "question": "4週間以内に手術を受けた，または3日以上の安静（寝たきり）はありましたか？", "type": "yesno", "source": {"name": "Wells score（PE）／PERC rule", "url": "https://doi.org/10.1111/j.1538-7836.2004.00790.x", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true, "flag_if": "yes", "flag_label": "肺塞栓を疑う所見", "suggests": ["肺塞栓"]}, {"id": "cp_hormone", "question": "女性ホルモンの薬（ピル・ホルモン補充療法）を使っていますか？", "type": "yesno", "source": {"name": "PERC rule（Kline et al. J Thromb Haemost 2004）", "url": "https://doi.org/10.1111/j.1538-7836.2004.00790.x", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true, "flag_if": "yes", "flag_label": "肺塞栓を疑う所見", "suggests": ["肺塞栓"]}]}, {"id": "s2_character", "label": "第2段階：性状・誘因の絞り込み", "depends_on": {"item": "cp_present", "value": "yes"}, "items": [{"id": "cp_character", "question": "痛みはどのような感じですか？", "type": "choice", "options": ["締め付け・圧迫感", "刺すような・焼けるような", "引き裂かれるような", "その他"], "source": {"name": "Diamond–Forrester 典型的狭心症の3要件（Diamond & Forrester, NEJM 1979／Genders et al. Eur Heart J 2011）", "url": "https://doi.org/10.1056/NEJM197906143002402", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "cp_location_radiation", "question": "痛みの場所と，腕・肩・顎・背中への広がりはありますか？", "type": "text", "source": {"name": "HEART score History項目（Six, Backus & Kelder, Neth Heart J 2008）", "url": "https://doi.org/10.1007/BF03086144", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "cp_exertional", "question": "体を動かす（労作）と痛みが強くなりますか？", "type": "yesno", "source": {"name": "Diamond–Forrester 3要件／Marburg Heart Score（Bösner et al. CMAJ 2010）", "url": "https://doi.org/10.1503/cmaj.100212", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "cp_relief_rest_nitro", "question": "安静にする，またはニトログリセリンを使うと数分以内に楽になりますか？", "type": "yesno", "source": {"name": "Diamond–Forrester 3要件（Diamond & Forrester, NEJM 1979）", "url": "https://doi.org/10.1056/NEJM197906143002402", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "cp_ccs_grade", "question": "普段の生活で，どの程度の運動で痛みが出ますか？", "type": "choice", "options": ["坂道・階段の早歩きで（Grade I〜II）", "平地1〜2ブロック・階段1階分程度で（Grade III）", "軽い動作でも（Grade III〜IV）", "安静時にも（Grade IV）"], "source": {"name": "CCS狭心症分類（Campeau, Circulation 1976／Canadian Cardiovascular Society）", "url": "https://ccs.ca/wp-content/uploads/2020/12/Ang_Gui_1976.pdf", "kind": "classification"}, "license": "自前実装（枠組みは事実・アイデア，出典明記）", "commercial_ok": true}, {"id": "cp_reproducible_by_pressure", "question": "胸を押したときに同じ痛みが出ますか？", "type": "yesno", "source": {"name": "Marburg Heart Score（Bösner et al. CMAJ 2010）", "url": "https://doi.org/10.1503/cmaj.100212", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true, "flag_if": "no", "flag_label": "圧痛で再現されない＝心臓由来を示唆（Marburg加点）"}, {"id": "cp_nausea_sweat", "question": "冷や汗・吐き気を伴いますか？", "type": "yesno", "source": {"name": "HEART score History項目（Six, Backus & Kelder, Neth Heart J 2008）", "url": "https://doi.org/10.1007/BF03086144", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "cp_believes_cardiac", "question": "ご自身では，心臓からくる痛みだと思いますか？", "type": "yesno", "source": {"name": "Marburg Heart Score（Bösner et al. CMAJ 2010）", "url": "https://doi.org/10.1503/cmaj.100212", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}]}, {"id": "s3_history", "label": "第3段階：既往・リスク因子", "depends_on": {"item": "cp_present", "value": "yes"}, "items": [{"id": "cp_known_vascular", "question": "以前に心筋梗塞・狭心症・脳梗塞・閉塞性動脈硬化症と言われたことはありますか？", "type": "yesno", "source": {"name": "Marburg Heart Score／HEART score Risk factors項目", "url": "https://doi.org/10.1503/cmaj.100212", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "cp_age_sex_risk", "question": "年齢と性別を教えてください（女性65歳以上／男性55歳以上でMarburgスコアが加点されます）", "type": "value", "source": {"name": "Marburg Heart Score（Bösner et al. CMAJ 2010）", "url": "https://doi.org/10.1503/cmaj.100212", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "cp_risk_factors", "question": "高血圧・糖尿病・脂質異常症・喫煙・家族歴・肥満のうち，いくつ該当しますか？", "type": "value", "source": {"name": "HEART score Risk factors項目（Six, Backus & Kelder, Neth Heart J 2008）", "url": "https://doi.org/10.1007/BF03086144", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "cp_age_heart", "question": "年齢は45歳未満／45〜64歳／65歳以上のどれですか？（HEARTスコアの配点が変わります）", "type": "choice", "options": ["45歳未満", "45〜64歳", "65歳以上"], "source": {"name": "HEART score Age項目", "url": "https://doi.org/10.1007/BF03086144", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "cp_pe_dvt_history", "question": "以前に肺塞栓や深部静脈血栓症と言われたことがありますか？", "type": "yesno", "source": {"name": "Wells score（PE）／PERC rule", "url": "https://doi.org/10.1111/j.1538-7836.2004.00790.x", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}]}], "scores": [{"id": "marburg", "label": "Marburg Heart Score", "items": ["cp_age_sex_risk", "cp_known_vascular", "cp_believes_cardiac", "cp_exertional", "cp_reproducible_by_pressure"], "threshold": {"low": "0〜2点：CAD低確率", "high": "3〜5点：追加評価を検討"}, "source": {"name": "Bösner et al. CMAJ 2010;182:1295-1300", "url": "https://doi.org/10.1503/cmaj.100212"}}, {"id": "diamond_forrester", "label": "Diamond–Forrester 胸痛タイプ分類", "items": ["cp_character", "cp_exertional", "cp_relief_rest_nitro"], "threshold": {"typical": "3要件すべて該当＝典型的狭心症", "atypical": "2要件該当＝非典型的", "noncardiac": "1要件以下＝非心臓性の可能性"}, "source": {"name": "Diamond & Forrester, NEJM 1979；Genders et al. Eur Heart J 2011", "url": "https://doi.org/10.1056/NEJM197906143002402"}}, {"id": "heart_history", "label": "HEART score（History・Risk factors 部分の暫定値）", "items": ["cp_character", "cp_location_radiation", "cp_nausea_sweat", "cp_risk_factors", "cp_age_heart"], "threshold": {"note": "Historyの疑わしさ判定は医師の主観評価が必要．本アプリでは材料の提示に留め，最終判定は医師が行う（低リスク0-3／中リスク4-6／高リスク7-10）"}, "source": {"name": "Six, Backus & Kelder, Neth Heart J 2008；Backus et al. Int J Cardiol 2013", "url": "https://doi.org/10.1007/BF03086144"}}, {"id": "addrs", "label": "ADD-RS（大動脈解離検出リスクスコア）", "items": ["cp_onset_sudden", "cp_worst_ever", "cp_tearing", "cp_pulse_bp_diff", "cp_family_aortic", "cp_marfan"], "threshold": {"note": "3カテゴリ（素因・疼痛性状・所見）のうち1カテゴリ以上該当で大動脈解離のリスクありと判断"}, "source": {"name": "Rogers et al. Circulation 2011;123:2213-2218", "url": "https://doi.org/10.1161/CIRCULATIONAHA.110.988568"}}], "suggested_conditions": [{"label": "急性冠症候群", "when": ["marburg>=3", "cp_rest_dyspnea=yes"]}, {"label": "大動脈解離", "when": ["addrs>=1"]}, {"label": "肺塞栓", "when": ["cp_unilateral_leg_swelling=yes", "cp_hemoptysis=yes"]}, {"label": "非心臓性胸痛の可能性", "when": ["diamond_forrester=noncardiac"]}]}, {"id": "dyspnea_edema", "label": "息切れ・むくみ（心不全）", "trigger_keywords": ["息切れ", "息苦しい", "むくみ", "浮腫", "体重増加", "疲れやすい"], "stages": [{"id": "s1_redflag", "label": "第1段階：緊急性の確認（Red flag）", "items": [{"id": "hf_rest_dyspnea", "question": "安静にしていても息苦しいですか？", "type": "yesno", "source": {"name": "Boston criteria（Carlson et al. J Chronic Dis 1985，病歴カテゴリ4点項目）", "url": "https://doi.org/10.1016/0021-9681(85)90115-8", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true, "flag_if": "yes", "flag_label": "急性心不全を疑う所見", "suggests": ["急性心不全"]}, {"id": "hf_orthopnea", "question": "横になると息苦しくて，起き上がったり座ったりしないと楽になりませんか（起座呼吸）？", "type": "yesno", "source": {"name": "Framingham心不全診断基準・大基準（McKee et al. NEJM 1971）／Boston criteria", "url": "https://doi.org/10.1056/NEJM197112232852601", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true, "flag_if": "yes", "flag_label": "急性心不全を疑う所見", "suggests": ["急性心不全"]}, {"id": "hf_pnd", "question": "夜，息苦しさで突然目が覚めることがありますか（発作性夜間呼吸困難）？", "type": "yesno", "source": {"name": "Framingham心不全診断基準・大基準（McKee et al. NEJM 1971）", "url": "https://doi.org/10.1056/NEJM197112232852601", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true, "flag_if": "yes", "flag_label": "急性心不全を疑う所見", "suggests": ["急性心不全"]}, {"id": "hf_acute_pulmonary_edema", "question": "急に強い息苦しさが出て，肺に水がたまっている（肺水腫）と言われたことはありますか？", "type": "yesno", "source": {"name": "Framingham心不全診断基準・大基準（McKee et al. NEJM 1971）", "url": "https://doi.org/10.1056/NEJM197112232852601", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true, "flag_if": "yes", "flag_label": "急性心不全を疑う所見", "suggests": ["急性心不全"]}, {"id": "hf_fluid_buildup", "question": "足・お腹・首まわりに水がたまった感じ（むくみ）や，急な体重増加はありますか？", "type": "yesno", "source": {"name": "NHLBI Health Topics（Heart Failure）", "url": "https://www.nhlbi.nih.gov/health/heart-failure", "kind": "public_health_info"}, "license": "パブリックドメイン", "commercial_ok": true, "flag_if": "yes", "flag_label": "心不全増悪を疑う所見", "suggests": ["心不全", "急性心不全"]}]}, {"id": "s2_character", "label": "第2段階：活動度・性状の絞り込み（NYHA・Boston criteria）", "items": [{"id": "hf_nyha_mild", "question": "普段の生活（歩く・階段を上る）で息切れや動悸はありますか？", "type": "yesno", "source": {"name": "NYHA心機能分類（The Criteria Committee of the NYHA, 9th ed. 1994）", "url": "", "kind": "classification"}, "license": "自前実装（枠組みは事実・アイデア，出典明記）", "commercial_ok": true}, {"id": "hf_nyha_moderate", "question": "軽い動作（着替え・洗面）でも症状が出ますか？", "type": "yesno", "source": {"name": "NYHA心機能分類（NYHA 1994）", "url": "", "kind": "classification"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "hf_nyha_severe", "question": "安静にしていても息苦しさや動悸がありますか？", "type": "yesno", "source": {"name": "NYHA心機能分類（NYHA 1994）", "url": "", "kind": "classification"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "hf_exertion_threshold", "question": "症状が出るのは，どのくらいの運動量からですか？", "type": "text", "source": {"name": "NYHA心機能分類（NYHA 1994）", "url": "", "kind": "classification"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "hf_leg_edema", "question": "足首やすねにむくみがありますか？", "type": "yesno", "source": {"name": "Framingham心不全診断基準・小基準（下腿浮腫）", "url": "https://doi.org/10.1056/NEJM197112232852601", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "hf_nocturnal_cough", "question": "夜に咳が出ますか？", "type": "yesno", "source": {"name": "Framingham心不全診断基準・小基準（夜間咳嗽）", "url": "https://doi.org/10.1056/NEJM197112232852601", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "hf_exertional_fatigue", "question": "体を動かすと，普段よりすぐに息切れ・疲れが出ますか？", "type": "yesno", "source": {"name": "Framingham心不全診断基準・小基準（労作時呼吸困難）", "url": "https://doi.org/10.1056/NEJM197112232852601", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}]}, {"id": "s3_history", "label": "第3段階：既往・生活習慣", "items": [{"id": "hf_known_htn", "question": "高血圧と言われたことはありますか？", "type": "yesno", "source": {"name": "厚生労働省 標準的な健診・保健指導プログラム（令和6年度版）別紙3 標準的な質問票の構造を参考", "url": "https://www.mhlw.go.jp/content/10900000/001081581.pdf", "kind": "public_questionnaire"}, "license": "PDL1.0（CC BY 4.0 互換，出典明記）", "commercial_ok": true}, {"id": "hf_known_mi", "question": "心筋梗塞・狭心症の既往はありますか？", "type": "yesno", "source": {"name": "厚生労働省 標準的な質問票 Q5（心臓病）", "url": "https://www.mhlw.go.jp/content/10900000/001081581.pdf", "kind": "public_questionnaire"}, "license": "PDL1.0（CC BY 4.0 互換）", "commercial_ok": true}, {"id": "hf_diabetes", "question": "糖尿病はありますか？", "type": "yesno", "source": {"name": "厚生労働省 標準的な質問票の構造を参考", "url": "https://www.mhlw.go.jp/content/10900000/001081581.pdf", "kind": "public_questionnaire"}, "license": "PDL1.0（CC BY 4.0 互換）", "commercial_ok": true}, {"id": "hf_med_adherence", "question": "薬（利尿薬・降圧薬など）を指示どおり飲めていますか？飲み忘れることはありますか？", "type": "text", "source": {"name": "厚生労働省 標準的な質問票の『声かけの例』（Q1-3服薬の項）", "url": "https://www.mhlw.go.jp/content/10900000/001081581.pdf", "kind": "public_questionnaire"}, "license": "PDL1.0（CC BY 4.0 互換）", "commercial_ok": true}]}], "scores": [{"id": "nyha_class", "label": "NYHA心機能分類（暫定判定）", "items": ["hf_nyha_mild", "hf_nyha_moderate", "hf_nyha_severe"], "threshold": {"note": "軽い動作でも症状＝Class III相当，安静時にも症状＝Class IV相当，通常活動のみで症状＝Class I/II境界"}, "source": {"name": "NYHA 1994；AHA/ACC/HFSA 2022 心不全ガイドラインに記載の分類枠組み（枠組みのみ参照，文言転載なし）", "url": ""}}, {"id": "framingham_hf", "label": "Framingham心不全診断基準（問診で拾える範囲）", "items": {"major": ["hf_pnd", "hf_orthopnea", "hf_acute_pulmonary_edema"], "minor": ["hf_leg_edema", "hf_nocturnal_cough", "hf_exertional_fatigue"]}, "threshold": {"note": "大基準2つ，または大基準1つ＋小基準2つで心不全の可能性あり（原法は身体所見・胸部X線を含む．本デモは問診部分のみの近似値）"}, "source": {"name": "McKee et al. NEJM 1971;285:1441-1446", "url": "https://doi.org/10.1056/NEJM197112232852601"}}, {"id": "boston_criteria", "label": "Boston criteria（病歴カテゴリのみの暫定値）", "items": ["hf_rest_dyspnea", "hf_orthopnea", "hf_pnd", "hf_nyha_mild", "hf_nyha_moderate"], "threshold": {"note": "原法は病歴・身体所見・胸部X線の3カテゴリ計12点で8〜12点がdefinite．本デモは病歴カテゴリの問診部分のみを提示（身体所見・X線は含まない）"}, "source": {"name": "Carlson et al. J Chronic Dis 1985;38:733-739", "url": "https://doi.org/10.1016/0021-9681(85)90115-8"}}], "suggested_conditions": [{"label": "急性心不全", "when": ["hf_rest_dyspnea=yes", "hf_orthopnea=yes", "hf_pnd=yes"]}, {"label": "慢性心不全の増悪", "when": ["hf_known_mi=yes", "hf_fluid_buildup=yes"]}]}, {"id": "palpitation", "label": "動悸（心房細動）", "trigger_keywords": ["動悸", "脈が飛ぶ", "脈が速い", "不整脈", "脈が乱れる", "ドキドキ"], "stages": [{"id": "s1_redflag", "label": "第1段階：緊急性の確認（Red flag）", "items": [{"id": "pa_syncope", "question": "動悸とともに気を失った，または失いそうになりましたか？", "type": "yesno", "source": {"name": "循環器内科問診票の共通構造（阪南市民病院ほか）", "url": "", "kind": "structure_reference"}, "license": "自前実装（構造のみ参考）", "commercial_ok": true, "flag_if": "yes", "flag_label": "重症不整脈を疑う所見", "suggests": ["重症不整脈"]}, {"id": "pa_chest_pain", "question": "動悸とともに胸の痛みがありますか？", "type": "yesno", "source": {"name": "NHLBI Health Topics（Atrial Fibrillation）", "url": "https://www.nhlbi.nih.gov/health/atrial-fibrillation", "kind": "public_health_info"}, "license": "パブリックドメイン", "commercial_ok": true, "flag_if": "yes", "flag_label": "急性冠症候群の合併を疑う所見", "suggests": ["急性冠症候群"]}, {"id": "pa_dizzy", "question": "めまいやふらつきを伴いますか？", "type": "yesno", "source": {"name": "NHLBI Health Topics（Atrial Fibrillation）", "url": "https://www.nhlbi.nih.gov/health/atrial-fibrillation", "kind": "public_health_info"}, "license": "パブリックドメイン", "commercial_ok": true}, {"id": "pa_pattern", "question": "動悸は，脈が乱れる／速くなる／強く感じる，のどれですか？", "type": "choice", "options": ["脈が乱れる", "脈が速くなる", "強く感じる", "わからない"], "source": {"name": "循環器内科問診票の共通構造（阪南市民病院ほか）", "url": "", "kind": "structure_reference"}, "license": "自前実装（構造のみ参考）", "commercial_ok": true}]}, {"id": "s2_character", "label": "第2段階：症状の程度（EHRA症状分類）", "items": [{"id": "pa_no_impact", "question": "動悸などの症状で，日常生活に支障はありませんか？", "type": "yesno", "source": {"name": "EHRA症状分類（Kirchhof et al. Europace 2007；Wynn et al. Europace 2014）", "url": "https://doi.org/10.1093/europace/eum191", "kind": "classification"}, "license": "自前実装（枠組みのみ，出典明記）", "commercial_ok": true}, {"id": "pa_bothersome_but_ok", "question": "症状は気になるが，普段どおりの生活はできますか？", "type": "yesno", "source": {"name": "EHRA症状分類（改訂版 IIb）", "url": "https://doi.org/10.1093/europace/eut395", "kind": "classification"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "pa_disabling", "question": "症状のために，普段の生活ができませんか？", "type": "yesno", "source": {"name": "EHRA症状分類（Class IV）", "url": "https://doi.org/10.1093/europace/eum191", "kind": "classification"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "pa_frequency", "question": "動悸はどのくらいの頻度で，どのくらいの時間続きますか？", "type": "text", "source": {"name": "循環器内科問診票の共通構造（発症時期の聴取）", "url": "", "kind": "structure_reference"}, "license": "自前実装（構造のみ参考）", "commercial_ok": true}, {"id": "pa_history_af", "question": "以前に心房細動や不整脈と言われたことがありますか？", "type": "yesno", "source": {"name": "循環器内科問診票の共通構造（既往歴の聴取）", "url": "", "kind": "structure_reference"}, "license": "自前実装（構造のみ参考）", "commercial_ok": true}]}, {"id": "s3_history", "label": "第3段階：脳卒中・出血リスク（CHA₂DS₂-VASc／HAS-BLED）", "items": [{"id": "pa_chf", "question": "心不全と言われたことはありますか？", "type": "yesno", "source": {"name": "CHA₂DS₂-VASc（Lip et al. Chest 2010）", "url": "https://doi.org/10.1378/chest.09-1584", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "pa_htn", "question": "高血圧はありますか？", "type": "yesno", "source": {"name": "CHA₂DS₂-VASc", "url": "https://doi.org/10.1378/chest.09-1584", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "pa_age75", "question": "年齢は75歳以上ですか？", "type": "yesno", "source": {"name": "CHA₂DS₂-VASc（年齢75歳以上で2点）", "url": "https://doi.org/10.1378/chest.09-1584", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "pa_dm", "question": "糖尿病はありますか？", "type": "yesno", "source": {"name": "CHA₂DS₂-VASc", "url": "https://doi.org/10.1378/chest.09-1584", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "pa_stroke_tia", "question": "脳梗塞や，一時的な手足のしびれ・言葉のもつれ（一過性脳虚血発作）の既往はありますか？", "type": "yesno", "source": {"name": "CHA₂DS₂-VASc（脳卒中/TIA/血栓塞栓で2点）", "url": "https://doi.org/10.1378/chest.09-1584", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "pa_vascular", "question": "心筋梗塞・閉塞性動脈硬化症・大動脈のプラークと言われたことはありますか？", "type": "yesno", "source": {"name": "CHA₂DS₂-VASc（血管疾患）", "url": "https://doi.org/10.1378/chest.09-1584", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "pa_age65_74", "question": "年齢は65〜74歳ですか？", "type": "yesno", "source": {"name": "CHA₂DS₂-VASc（年齢65-74歳で1点）", "url": "https://doi.org/10.1378/chest.09-1584", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "pa_female", "question": "性別は女性ですか？", "type": "yesno", "source": {"name": "CHA₂DS₂-VASc（女性で1点）", "url": "https://doi.org/10.1378/chest.09-1584", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "pa_bleeding_history", "question": "血が止まりにくい，または大きな出血をしたことがありますか？", "type": "yesno", "source": {"name": "HAS-BLED（Pisters et al. Chest 2010）", "url": "https://doi.org/10.1378/chest.10-0134", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "pa_antiplatelet_nsaid", "question": "痛み止め（ロキソニン等のNSAID）や抗血小板薬を常用していますか？", "type": "yesno", "source": {"name": "HAS-BLED（薬剤項目）", "url": "https://doi.org/10.1378/chest.10-0134", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "pa_alcohol", "question": "お酒は週にどのくらい飲みますか（週8単位以上かどうか）？", "type": "text", "source": {"name": "HAS-BLED（アルコール項目）", "url": "https://doi.org/10.1378/chest.10-0134", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "pa_renal_liver", "question": "腎機能や肝機能の異常を指摘されたことがありますか？", "type": "yesno", "source": {"name": "HAS-BLED（腎機能・肝機能異常）", "url": "https://doi.org/10.1378/chest.10-0134", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}]}], "scores": [{"id": "ehra_class", "label": "EHRA症状分類（暫定）", "items": ["pa_no_impact", "pa_bothersome_but_ok", "pa_disabling"], "threshold": {"note": "無症状=I，生活に影響なし=IIa，気になるが生活可=IIb，重度=III，普段の生活不可=IV"}, "source": {"name": "Kirchhof et al. Europace 2007；Wynn et al. Europace 2014", "url": "https://doi.org/10.1093/europace/eut395"}}, {"id": "cha2ds2_vasc", "label": "CHA₂DS₂-VASc（脳卒中リスク）", "items": ["pa_chf", "pa_htn", "pa_age75", "pa_dm", "pa_stroke_tia", "pa_vascular", "pa_age65_74", "pa_female"], "threshold": {"note": "0点（男性）/1点（女性）：抗凝固不要，1点（男性）：個別検討，2点以上：抗凝固療法を推奨（最終判断は医師）"}, "source": {"name": "Lip et al. Chest 2010;137:263-272", "url": "https://doi.org/10.1378/chest.09-1584"}}, {"id": "has_bled", "label": "HAS-BLED（出血リスク）", "items": ["pa_htn", "pa_renal_liver", "pa_stroke_tia", "pa_bleeding_history", "pa_age75", "pa_antiplatelet_nsaid", "pa_alcohol"], "threshold": {"note": "3点以上で出血高リスク（定期的な再評価を推奨）"}, "source": {"name": "Pisters et al. Chest 2010;138:1093-1100", "url": "https://doi.org/10.1378/chest.10-0134"}}], "suggested_conditions": [{"label": "心房細動", "when": ["pa_pattern=脈が乱れる", "pa_history_af=yes"]}, {"label": "抗凝固療法の適応検討", "when": ["cha2ds2_vasc>=2"]}]}, {"id": "syncope", "label": "失神", "trigger_keywords": ["失神", "気を失った", "意識を失った", "倒れた", "気を失いそう"], "stages": [{"id": "s1_redflag", "label": "第1段階：緊急性の確認（Red flag）", "items": [{"id": "sy_main_complaint", "question": "今日はどのような症状で来られましたか（失神／気を失いそうになった／めまい）？", "type": "choice", "options": ["完全に意識を失った", "気を失いそうになった", "めまい・ふらつき", "その他"], "source": {"name": "循環器内科問診票の共通構造（昭和医科大学病院ほか，主訴区分）", "url": "", "kind": "structure_reference"}, "license": "自前実装（構造のみ参考）", "commercial_ok": true}, {"id": "sy_cardiac_disease_ecg", "question": "心臓の病気（弁膜症・心筋症など）や心電図の異常を指摘されたことがありますか？", "type": "yesno", "source": {"name": "Calgary Syncope Symptom Score 項目1（構造的心疾患／心電図異常）（Sheldon et al. Eur Heart J 2006）", "url": "https://doi.org/10.1093/eurheartj/ehi584", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true, "flag_if": "yes", "flag_label": "心原性失神を疑う所見（Calgary −5点項目）", "suggests": ["心原性失神"]}, {"id": "sy_injury", "question": "倒れたときにけがをしましたか？", "type": "yesno", "source": {"name": "循環器内科問診票の共通構造", "url": "", "kind": "structure_reference"}, "license": "自前実装（構造のみ参考）", "commercial_ok": true}]}, {"id": "s2_character", "label": "第2段階：状況・誘因の絞り込み（Calgary Syncope Score）", "items": [{"id": "sy_witness_pale", "question": "失神しているとき，周りの人に顔色が青白かったと言われましたか？", "type": "yesno", "source": {"name": "Calgary Syncope Symptom Score 項目2（Sheldon et al. Eur Heart J 2006）", "url": "https://doi.org/10.1093/eurheartj/ehi584", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "sy_posture", "question": "座っているとき，または長く立っているときに起きましたか？", "type": "yesno", "source": {"name": "Calgary Syncope Symptom Score 項目5", "url": "https://doi.org/10.1093/eurheartj/ehi584", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "sy_sweat_warm", "question": "失神の前に，汗をかいたり熱く感じたりしましたか？", "type": "yesno", "source": {"name": "Calgary Syncope Symptom Score 項目6", "url": "https://doi.org/10.1093/eurheartj/ehi584", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "sy_pain_trigger", "question": "採血や痛みを伴う処置で気を失ったことがありますか？", "type": "yesno", "source": {"name": "Calgary Syncope Symptom Score 項目7", "url": "https://doi.org/10.1093/eurheartj/ehi584", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}]}, {"id": "s3_history", "label": "第3段階：既往・発症パターン", "items": [{"id": "sy_before35", "question": "初めて失神したのは35歳より前ですか？", "type": "yesno", "source": {"name": "Calgary Syncope Symptom Score 項目3", "url": "https://doi.org/10.1093/eurheartj/ehi584", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "sy_amnesia", "question": "失神の前の記憶がありませんか（気づいたら倒れていた）？", "type": "yesno", "source": {"name": "Calgary Syncope Symptom Score 項目4", "url": "https://doi.org/10.1093/eurheartj/ehi584", "kind": "score_item"}, "license": "自前実装（出典明記）", "commercial_ok": true}, {"id": "sy_frequency", "question": "これまでに何回くらい失神したことがありますか？", "type": "value", "source": {"name": "循環器内科問診票の共通構造（既往・発症年齢の聴取）", "url": "", "kind": "structure_reference"}, "license": "自前実装（構造のみ参考）", "commercial_ok": true}, {"id": "sy_meds", "question": "現在飲んでいる薬はありますか（降圧薬・利尿薬など）？", "type": "text", "source": {"name": "循環器内科問診票の共通構造（服薬の聴取）", "url": "", "kind": "structure_reference"}, "license": "自前実装（構造のみ参考）", "commercial_ok": true}, {"id": "sy_family_history_general", "question": "ご家族に心臓病と言われた方はいますか？", "type": "text", "source": {"name": "循環器内科問診票の共通構造（家族歴の聴取）", "url": "", "kind": "structure_reference"}, "license": "自前実装（構造のみ参考）", "commercial_ok": true}]}], "scores": [{"id": "calgary_syncope_score", "label": "Calgary Syncope Symptom Score", "items": [{"id": "sy_cardiac_disease_ecg", "points": -5}, {"id": "sy_witness_pale", "points": 2}, {"id": "sy_before35", "points": -3}, {"id": "sy_amnesia", "points": -2}, {"id": "sy_posture", "points": 1}, {"id": "sy_sweat_warm", "points": 2}, {"id": "sy_pain_trigger", "points": 3}], "threshold": {"note": "合計 −2点以上で血管迷走神経性失神の可能性が高い（−14〜+6点の範囲）"}, "source": {"name": "Sheldon et al. Eur Heart J 2006;27:344-350；検証 Eur Heart J 2009;30:2888-2896", "url": "https://doi.org/10.1093/eurheartj/ehi584"}}], "suggested_conditions": [{"label": "血管迷走神経性失神", "when": ["calgary_syncope_score>=-2"]}, {"label": "心原性失神", "when": ["sy_cardiac_disease_ecg=yes"]}]}], "common_intake": {"label": "共通問診（既往・服薬・生活歴）", "items": [{"id": "ci_med_bp", "question": "血圧を下げる薬を飲んでいますか？", "type": "yesno", "source": {"name": "厚生労働省「標準的な健診・保健指導プログラム」令和6年度版 別紙3 標準的な質問票 Q1", "url": "https://www.mhlw.go.jp/content/10900000/001081581.pdf", "kind": "public_questionnaire"}, "license": "PDL1.0（CC BY 4.0 互換，商用可）", "commercial_ok": true}, {"id": "ci_med_lipid", "question": "コレステロールや中性脂肪を下げる薬を飲んでいますか？", "type": "yesno", "source": {"name": "厚生労働省 標準的な質問票 Q3", "url": "https://www.mhlw.go.jp/content/10900000/001081581.pdf", "kind": "public_questionnaire"}, "license": "PDL1.0（CC BY 4.0 互換）", "commercial_ok": true}, {"id": "ci_stroke_history", "question": "医師から，脳卒中（脳出血，脳梗塞等）にかかっているといわれたり，治療を受けたことがありますか？", "type": "yesno", "hint": "「はい」の場合の声かけ例：診断された医療機関はどこですか／具体的な病名は分かりますか", "source": {"name": "厚生労働省 標準的な質問票 Q4", "url": "https://www.mhlw.go.jp/content/10900000/001081581.pdf", "kind": "public_questionnaire"}, "license": "PDL1.0（CC BY 4.0 互換）", "commercial_ok": true}, {"id": "ci_heart_disease_history", "question": "医師から，心臓病（狭心症，心筋梗塞等）にかかっているといわれたり，治療を受けたことがありますか？", "type": "yesno", "hint": "「はい」の場合の声かけ例：診断された医療機関はどこですか／具体的な病名は分かりますか．不整脈，特に心房細動の既往にも留意", "source": {"name": "厚生労働省 標準的な質問票 Q5", "url": "https://www.mhlw.go.jp/content/10900000/001081581.pdf", "kind": "public_questionnaire"}, "license": "PDL1.0（CC BY 4.0 互換）", "commercial_ok": true}, {"id": "ci_ckd_history", "question": "医師から，慢性腎臓病や腎不全にかかっているといわれたり，治療（人工透析など）を受けていますか？", "type": "yesno", "source": {"name": "厚生労働省 標準的な質問票 Q6", "url": "https://www.mhlw.go.jp/content/10900000/001081581.pdf", "kind": "public_questionnaire"}, "license": "PDL1.0（CC BY 4.0 互換）", "commercial_ok": true}, {"id": "ci_smoking", "question": "現在，たばこを習慣的に吸っていますか？", "type": "yesno", "source": {"name": "厚生労働省 標準的な質問票 Q8", "url": "https://www.mhlw.go.jp/content/10900000/001081581.pdf", "kind": "public_questionnaire"}, "license": "PDL1.0（CC BY 4.0 互換）", "commercial_ok": true}, {"id": "ci_weight_gain20", "question": "20歳の時の体重から10kg以上増加していますか？", "type": "yesno", "source": {"name": "厚生労働省 標準的な質問票 Q9", "url": "https://www.mhlw.go.jp/content/10900000/001081581.pdf", "kind": "public_questionnaire"}, "license": "PDL1.0（CC BY 4.0 互換）", "commercial_ok": true}, {"id": "ci_alcohol_freq", "question": "お酒（日本酒，焼酎，ビール，洋酒など）を飲む頻度はどのくらいですか？", "type": "text", "source": {"name": "厚生労働省 標準的な質問票 Q18", "url": "https://www.mhlw.go.jp/content/10900000/001081581.pdf", "kind": "public_questionnaire"}, "license": "PDL1.0（CC BY 4.0 互換）", "commercial_ok": true}, {"id": "ci_alcohol_amount", "question": "飲酒日の1日当たりの飲酒量はどのくらいですか？", "type": "text", "source": {"name": "厚生労働省 標準的な質問票 Q19", "url": "https://www.mhlw.go.jp/content/10900000/001081581.pdf", "kind": "public_questionnaire"}, "license": "PDL1.0（CC BY 4.0 互換）", "commercial_ok": true}, {"id": "ci_sleep_rest", "question": "睡眠で休養が十分とれていますか？", "type": "yesno", "source": {"name": "厚生労働省 標準的な質問票 Q20", "url": "https://www.mhlw.go.jp/content/10900000/001081581.pdf", "kind": "public_questionnaire"}, "license": "PDL1.0（CC BY 4.0 互換）", "commercial_ok": true}, {"id": "ci_drug_allergy", "question": "薬や食べ物のアレルギーはありますか（造影剤を含む）？", "type": "text", "source": {"name": "循環器内科問診票の共通構造（アレルギーの聴取）", "url": "", "kind": "structure_reference"}, "license": "自前実装（構造のみ参考）", "commercial_ok": true}]}, "research_modules": [{"id": "who_pen_screening", "label": "WHO PEN 心血管疾患リスク評価（研究用モジュール）", "badge": "研究用モジュール（非商用）", "license_note": "WHO PEN 2020『Ask about』の趣旨に基づく質問．CC BY-NC-SA 3.0 IGO のため非商用利用に限定．病院実運用・製品化にはWHOへの許諾照会が必要．", "commercial_ok": false, "items": [{"id": "who_diagnosed_conditions", "question": "心臓病・脳卒中・一過性脳虚血発作（TIA）・糖尿病・腎臓病と診断されたことがありますか？", "type": "text", "source": {"name": "WHO PEN（package of essential NCD interventions）2020，2.1 CVDリスク評価プロトコル『1. Ask about』", "url": "https://www.who.int/publications/i/item/9789240009226", "kind": "public_questionnaire"}, "license": "CC BY-NC-SA 3.0 IGO（非商用）", "commercial_ok": false}, {"id": "who_angina_breathlessness", "question": "労作時や横になったときの息切れ，胸の締めつけ感（狭心症様の症状）はありますか？", "type": "yesno", "source": {"name": "WHO PEN 2020 2.1『Ask about』", "url": "https://www.who.int/publications/i/item/9789240009226", "kind": "public_questionnaire"}, "license": "CC BY-NC-SA 3.0 IGO（非商用）", "commercial_ok": false}, {"id": "who_numbness_weight_loss", "question": "手足のしびれ・脱力，原因不明の体重減少，喉の渇き・多尿，顔や足のむくみ，血尿はありますか？", "type": "text", "source": {"name": "WHO PEN 2020 2.1『Ask about』", "url": "https://www.who.int/publications/i/item/9789240009226", "kind": "public_questionnaire"}, "license": "CC BY-NC-SA 3.0 IGO（非商用）", "commercial_ok": false}, {"id": "who_tobacco_12mo", "question": "この12か月にたばこを使用しましたか？", "type": "yesno", "source": {"name": "WHO PEN 2020 2.1『Ask about』", "url": "https://www.who.int/publications/i/item/9789240009226", "kind": "public_questionnaire"}, "license": "CC BY-NC-SA 3.0 IGO（非商用）", "commercial_ok": false}, {"id": "who_alcohol", "question": "お酒を飲みますか（頻度・量）？", "type": "text", "source": {"name": "WHO PEN 2020 2.1『Ask about』", "url": "https://www.who.int/publications/i/item/9789240009226", "kind": "public_questionnaire"}, "license": "CC BY-NC-SA 3.0 IGO（非商用）", "commercial_ok": false}, {"id": "who_occupation_activity", "question": "仕事は座り仕事ですか．週5日以上，1回30分以上の運動をしていますか？", "type": "text", "source": {"name": "WHO PEN 2020 2.1『Ask about』", "url": "https://www.who.int/publications/i/item/9789240009226", "kind": "public_questionnaire"}, "license": "CC BY-NC-SA 3.0 IGO（非商用）", "commercial_ok": false}, {"id": "who_family_premature_cvd", "question": "ご家族（親・兄弟）に，若くして心臓病や脳卒中になった方はいますか？", "type": "yesno", "source": {"name": "WHO PEN 2020 2.1『Ask about』", "url": "https://www.who.int/publications/i/item/9789240009226", "kind": "public_questionnaire"}, "license": "CC BY-NC-SA 3.0 IGO（非商用）", "commercial_ok": false}]}], "references": [{"name": "日本循環器学会（JCS）診療ガイドライン群", "url": "https://www.j-circ.or.jp/guideline/", "use": "設計の参照のみ（転載なし）", "license_note": "転載・改変は要申請"}, {"name": "2021 AHA/ACC/ASE/CHEST/SAEM/SCCT/SCMR Guideline for the Evaluation and Diagnosis of Chest Pain", "url": "https://doi.org/10.1161/CIR.0000000000001029", "use": "設計の参照のみ（転載なし）", "license_note": "改変・配布はACC/AHAの書面許諾が必要"}, {"name": "2022 AHA/ACC/HFSA Guideline for the Management of Heart Failure", "url": "https://doi.org/10.1161/CIR.0000000000001063", "use": "設計の参照のみ（転載なし）", "license_note": "改変・配布はAHAの書面許諾が必要"}, {"name": "2023 ACC/AHA/ACCP/HRS Guideline for the Diagnosis and Management of Atrial Fibrillation", "url": "https://doi.org/10.1161/CIR.0000000000001193", "use": "設計の参照のみ（転載なし）", "license_note": "改変・配布はAHAの書面許諾が必要"}, {"name": "2017 ACC/AHA/HRS Guideline for the Evaluation and Management of Patients With Syncope", "url": "https://doi.org/10.1161/CIR.0000000000000499", "use": "設計の参照のみ（転載なし）", "license_note": "改変・配布はACC/AHAの書面許諾が必要"}, {"name": "2023 ESC Guidelines for the management of acute coronary syndromes", "url": "https://doi.org/10.1093/eurheartj/ehad191", "use": "設計の参照のみ（転載なし）", "license_note": "個人・教育目的の閲覧のみ．商用不可，転載はOUPへの申請が必要"}, {"name": "2024 ESC Guidelines for the management of atrial fibrillation", "url": "https://doi.org/10.1093/eurheartj/ehae176", "use": "設計の参照のみ（転載なし）", "license_note": "個人・教育目的の閲覧のみ．商用不可"}, {"name": "2018 ESC Guidelines for the diagnosis and management of syncope", "url": "https://doi.org/10.1093/eurheartj/ehy037", "use": "設計の参照のみ（転載なし）", "license_note": "個人・教育目的の閲覧のみ．商用不可"}, {"name": "NICE CG95 Recent-onset chest pain of suspected cardiac origin", "url": "https://www.nice.org.uk/guidance/cg95", "use": "設計の参照のみ（転載なし）", "license_note": "英国外での利用は書面許可・有料ライセンスが必要"}, {"name": "NICE CG109 Transient loss of consciousness ('blackouts') in over 16s", "url": "https://www.nice.org.uk/guidance/cg109", "use": "設計の参照のみ（転載なし）", "license_note": "英国外での利用は書面許可・有料ライセンスが必要"}, {"name": "NICE NG106 Chronic heart failure in adults", "url": "https://www.nice.org.uk/guidance/ng106", "use": "設計の参照のみ（転載なし）", "license_note": "英国外での利用は書面許可・有料ライセンスが必要"}, {"name": "NICE NG196 Atrial fibrillation: diagnosis and management", "url": "https://www.nice.org.uk/guidance/ng196", "use": "設計の参照のみ（転載なし）", "license_note": "英国外での利用は書面許可・有料ライセンスが必要"}]}
+</script>
+
+<script>
+const QB = JSON.parse(document.getElementById('qb-data').textContent);
+const ALL_MODULES = QB.modules;
+const COMMON_INTAKE = QB.common_intake;
+const RESEARCH_MODULES = QB.research_modules || [];
+
+let currentModuleId = ALL_MODULES[0].id;
+let answers = {}; // itemId -> answer string
+
+function findModule(id) { return ALL_MODULES.find(m => m.id === id); }
+
+function findItemDef(moduleDef, itemId) {
+  for (const st of moduleDef.stages) {
+    const found = st.items.find(it => it.id === itemId);
+    if (found) return found;
+  }
+  if (COMMON_INTAKE) {
+    const f = COMMON_INTAKE.items.find(it => it.id === itemId);
+    if (f) return f;
+  }
+  for (const rm of RESEARCH_MODULES) {
+    const f = rm.items.find(it => it.id === itemId);
+    if (f) return f;
+  }
+  return null;
+}
+
+function licenseBadge(item) {
+  const src = item.source || {};
+  const lic = item.license || '';
+  if (item.commercial_ok === false) {
+    return '<span class="badge nc">NC研究用</span>';
+  }
+  if (lic.includes('パブリックドメイン')) return '<span class="badge pd">PD</span>';
+  if (lic.includes('PDL1.0')) return '<span class="badge cc">CC互換</span>';
+  if (lic.includes('構造')) return '<span class="badge struct">構造参考</span>';
+  return '<span class="badge self">自前実装</span>';
+}
+
+function renderChips() {
+  const area = document.getElementById('chip-area');
+  area.innerHTML = '';
+  for (const m of ALL_MODULES) {
+    const chip = document.createElement('div');
+    chip.className = 'chip' + (m.id === currentModuleId ? ' active' : '');
+    chip.textContent = m.label;
+    chip.onclick = () => { currentModuleId = m.id; render(); };
+    area.appendChild(chip);
+  }
+}
+
+function analyzeConversation() {
+  const text = document.getElementById('conv-text').value;
+  if (!text.trim()) return;
+  let best = null, bestCount = 0;
+  for (const m of ALL_MODULES) {
+    let cnt = 0;
+    for (const kw of m.trigger_keywords) { if (text.includes(kw)) cnt++; }
+    if (cnt > bestCount) { bestCount = cnt; best = m; }
+  }
+  if (best) { currentModuleId = best.id; render(); }
+  else { alert('該当するキーワードが見つかりませんでした．主訴チップを選んでください．'); }
+}
+
+function stageVisible(moduleDef, stage) {
+  if (!stage.depends_on) return true;
+  const ans = answers[stage.depends_on.item];
+  return ans === stage.depends_on.value;
+}
+
+function setAnswer(itemId, value) {
+  answers[itemId] = value;
+  render();
+}
+
+function renderAnswerControls(item) {
+  const cur = answers[item.id];
+  let html = '<div class="ans-row">';
+  if (item.type === 'yesno' || !item.type) {
+    const opts = [['yes', 'はい'], ['no', 'いいえ'], ['unknown', '不明']];
+    for (const [v, label] of opts) {
+      const sel = cur === v ? ('selected ' + v) : '';
+      html += `<button class="ans-btn ${sel}" onclick="setAnswer('${item.id}','${v}')">${label}</button>`;
+    }
+  } else if (item.type === 'choice') {
+    for (const opt of item.options) {
+      const sel = cur === opt ? 'selected choice' : '';
+      html += `<button class="ans-btn ${sel}" onclick="setAnswer('${item.id}', ${JSON.stringify(opt)})">${opt}</button>`;
+    }
+    html += `<button class="ans-btn ${cur === 'unknown' ? 'selected unknown' : ''}" onclick="setAnswer('${item.id}','unknown')">不明</button>`;
+  } else if (item.type === 'value') {
+    html += `<input class="value-input" type="text" value="${cur ? escapeHtml(cur) : ''}" placeholder="数値・回答を入力"
+      onchange="setAnswer('${item.id}', this.value)">`;
+  } else if (item.type === 'text') {
+    html += `<input class="text-input" type="text" value="${cur ? escapeHtml(cur) : ''}" placeholder="回答を入力"
+      onchange="setAnswer('${item.id}', this.value)">`;
+  }
+  html += '</div>';
+  return html;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function isFlagged(item) {
+  if (!item.flag_if) return false;
+  return answers[item.id] === item.flag_if;
+}
+
+function renderItem(item) {
+  const flagged = isFlagged(item);
+  let html = `<div class="item ${flagged ? 'flagged' : ''}">`;
+  html += `<div class="q">${escapeHtml(item.question)}</div>`;
+  if (item.hint) html += `<div class="hint">${escapeHtml(item.hint)}</div>`;
+  html += renderAnswerControls(item);
+  html += `<div class="badges">${licenseBadge(item)}<span class="badge" style="background:#999;">${escapeHtml((item.source && item.source.name) || '')}</span></div>`;
+  if (flagged) html += `<div class="hint" style="color:#c62828; margin-top:4px;">⚠ ${escapeHtml(item.flag_label || 'Red flag')}</div>`;
+  html += '</div>';
+  return html;
+}
+
+function renderStages(moduleDef) {
+  let html = '';
+  for (const st of moduleDef.stages) {
+    const visible = stageVisible(moduleDef, st);
+    html += `<div class="stage ${visible ? '' : 'locked'}">`;
+    html += `<div class="stage-head">${escapeHtml(st.label)}${visible ? '' : ' （前段階の回答待ち）'}</div>`;
+    if (visible) {
+      html += '<div class="stage-body">';
+      for (const item of st.items) html += renderItem(item);
+      html += '</div>';
+    }
+    html += '</div>';
+  }
+  return html;
+}
+
+// --- スコア計算（暫定値。最終判断は医師が行う） ---
+function scoreItemPositive(itemId, moduleDef) {
+  const def = findItemDef(moduleDef, itemId);
+  if (!def) return false;
+  const ans = answers[itemId];
+  if (ans === undefined) return false;
+  const flagIf = def.flag_if || 'yes';
+  if (def.type === 'yesno' || !def.type) return ans === flagIf;
+  if (def.type === 'choice') return !!ans && ans !== 'unknown';
+  return !!(ans && String(ans).trim());
+}
+
+function computeScore(moduleDef, score) {
+  if (score.id === 'diamond_forrester') {
+    const charAns = answers['cp_character'];
+    let cnt = 0;
+    if (charAns === '締め付け・圧迫感') cnt++;
+    if (answers['cp_exertional'] === 'yes') cnt++;
+    if (answers['cp_relief_rest_nitro'] === 'yes') cnt++;
+    const answered = ['cp_character', 'cp_exertional', 'cp_relief_rest_nitro'].some(id => answers[id] !== undefined);
+    if (!answered) return { text: '未回答', raw: null };
+    let cat = 'noncardiac', label = '非心臓性の可能性';
+    if (cnt === 3) { cat = 'typical'; label = '典型的狭心症'; }
+    else if (cnt === 2) { cat = 'atypical'; label = '非典型的'; }
+    return { text: `${cnt}/3要件該当：${label}`, raw: cat };
+  }
+  if (score.id === 'calgary_syncope_score') {
+    let sum = 0, answeredAny = false;
+    for (const it of score.items) {
+      if (answers[it.id] !== undefined) answeredAny = true;
+      if (scoreItemPositive(it.id, moduleDef)) sum += it.points;
+    }
+    if (!answeredAny) return { text: '未回答', raw: null };
+    return { text: `合計 ${sum} 点`, raw: sum };
+  }
+  if (score.id === 'framingham_hf') {
+    const majorItems = score.items.major, minorItems = score.items.minor;
+    const majorCnt = majorItems.filter(id => scoreItemPositive(id, moduleDef)).length;
+    const minorCnt = minorItems.filter(id => scoreItemPositive(id, moduleDef)).length;
+    const anyAnswered = [...majorItems, ...minorItems].some(id => answers[id] !== undefined);
+    if (!anyAnswered) return { text: '未回答', raw: null };
+    return { text: `大基準 ${majorCnt}/${majorItems.length}・小基準 ${minorCnt}/${minorItems.length}`, raw: { major: majorCnt, minor: minorCnt } };
+  }
+  // 汎用: 文字列配列の score.items
+  if (Array.isArray(score.items) && typeof score.items[0] === 'string') {
+    let cnt = 0, answeredAny = false, total = score.items.length;
+    for (const id of score.items) {
+      if (answers[id] !== undefined) answeredAny = true;
+      if (scoreItemPositive(id, moduleDef)) cnt++;
+    }
+    if (!answeredAny) return { text: '未回答', raw: null };
+    return { text: `${cnt} / ${total} 項目該当`, raw: cnt };
+  }
+  return { text: '未回答', raw: null };
+}
+
+function renderScores(moduleDef) {
+  if (!moduleDef.scores || moduleDef.scores.length === 0) return '<p class="empty-note">この主訴にはスコアの定義がありません．</p>';
+  let html = '';
+  for (const score of moduleDef.scores) {
+    const result = computeScore(moduleDef, score);
+    html += `<div class="score-box"><b>${escapeHtml(score.label)}</b>：${escapeHtml(result.text)}<br>`;
+    if (score.threshold && score.threshold.note) html += `<span style="color:#667085;">${escapeHtml(score.threshold.note)}</span>`;
+    html += `<div class="hint">出典：${escapeHtml(score.source.name)}</div></div>`;
+  }
+  return html;
+}
+
+function collectScoreValues(moduleDef) {
+  const vals = {};
+  for (const score of (moduleDef.scores || [])) {
+    const r = computeScore(moduleDef, score);
+    vals[score.id] = r.raw;
+  }
+  return vals;
+}
+
+function evalCondition(expr, moduleDef, scoreVals) {
+  const m = expr.match(/^([a-zA-Z0-9_]+)(>=|<=|=)(.+)$/);
+  if (!m) return false;
+  const [, key, op, valStr] = m;
+  if (scoreVals.hasOwnProperty(key)) {
+    const raw = scoreVals[key];
+    if (raw === null || raw === undefined) return false;
+    if (op === '=') return String(raw) === valStr;
+    const num = Number(valStr);
+    if (typeof raw !== 'number') return false;
+    return op === '>=' ? raw >= num : raw <= num;
+  }
+  // アイテムIDとの比較
+  const ans = answers[key];
+  if (ans === undefined) return false;
+  if (op === '=') return String(ans) === valStr;
+  const num = Number(valStr), ansNum = Number(ans);
+  if (isNaN(ansNum)) return false;
+  return op === '>=' ? ansNum >= num : ansNum <= num;
+}
+
+function renderSuggestedConditions(moduleDef) {
+  const scoreVals = collectScoreValues(moduleDef);
+  const hits = [];
+  for (const cond of (moduleDef.suggested_conditions || [])) {
+    const ok = cond.when.every(expr => evalCondition(expr, moduleDef, scoreVals));
+    if (ok) hits.push(cond.label);
+  }
+  if (hits.length === 0) return '<p class="empty-note">現時点で該当する所見はありません（回答を進めてください）．</p>';
+  let html = '<ul class="cond-list">';
+  for (const h of hits) html += `<li>${escapeHtml(h)}</li>`;
+  html += '</ul><p class="hint">※ 診断ではなく，確認の目安です．最終判断は医師が行います．</p>';
+  return html;
+}
+
+function renderRedFlags(moduleDef) {
+  const flags = [];
+  for (const st of moduleDef.stages) {
+    for (const item of st.items) {
+      if (isFlagged(item)) flags.push(item.flag_label || item.question);
+    }
+  }
+  if (flags.length === 0) return '<p class="empty-note">Red flagに該当する所見はありません．</p>';
+  let html = '<ul class="redflag-list">';
+  for (const f of flags) html += `<li>⚠ ${escapeHtml(f)}</li>`;
+  html += '</ul>';
+  return html;
+}
+
+function renderTodo(moduleDef) {
+  const todo = [];
+  for (const st of moduleDef.stages) {
+    if (!stageVisible(moduleDef, st)) continue;
+    for (const item of st.items) {
+      if (answers[item.id] === undefined) todo.push(item.question);
+    }
+  }
+  if (todo.length === 0) return '<p class="empty-note">現在開いている段階の項目はすべて確認済みです．</p>';
+  let html = '<ul class="todo-list">';
+  for (const t of todo.slice(0, 8)) html += `<li>${escapeHtml(t)}</li>`;
+  html += '</ul>';
+  if (todo.length > 8) html += `<p class="hint">ほか ${todo.length - 8} 項目未確認</p>`;
+  return html;
+}
+
+function renderModule() {
+  const moduleDef = findModule(currentModuleId);
+  const area = document.getElementById('module-area');
+  let html = '<div class="grid">';
+  html += '<div class="main-col">';
+  html += `<div class="card"><h2>${escapeHtml(moduleDef.label)}の問診</h2>`;
+  html += renderStages(moduleDef);
+  html += '</div>';
+
+  // 共通問診
+  html += '<div class="card"><h2>共通問診（既往・服薬・生活歴）</h2>';
+  for (const item of COMMON_INTAKE.items) html += renderItem(item);
+  html += '</div>';
+
+  // WHO PEN 研究用モジュール
+  for (const rm of RESEARCH_MODULES) {
+    html += `<div class="card"><h2>${escapeHtml(rm.label)}<span class="research-badge">${escapeHtml(rm.badge)}</span></h2>`;
+    html += `<p class="hint">${escapeHtml(rm.license_note)}</p>`;
+    for (const item of rm.items) html += renderItem(item);
+    html += '</div>';
+  }
+
+  html += '</div>'; // main-col
+
+  html += '<div class="side">';
+  html += '<div class="card"><h3>いま確認すべき項目</h3>' + renderTodo(moduleDef) + '</div>';
+  html += '<div class="card"><h3>Red flag</h3>' + renderRedFlags(moduleDef) + '</div>';
+  html += '<div class="card"><h3>察せられる病気（目安）</h3>' + renderSuggestedConditions(moduleDef) + '</div>';
+  html += '<div class="card"><h3>スコア（暫定値）</h3>' + renderScores(moduleDef) + '</div>';
+  html += '</div>'; // side
+
+  html += '</div>'; // grid
+  area.innerHTML = html;
+}
+
+function render() {
+  renderChips();
+  renderModule();
+}
+
+function buildSoapSummary() {
+  const moduleDef = findModule(currentModuleId);
+  const lines = [];
+  lines.push(`## S（聞き取りチェック：${moduleDef.label}）`);
+  for (const st of moduleDef.stages) {
+    for (const item of st.items) {
+      const ans = answers[item.id];
+      if (ans === undefined) continue;
+      lines.push(`・${item.question} → ${ans}`);
+    }
+  }
+  lines.push('');
+  lines.push('## S（共通問診）');
+  for (const item of COMMON_INTAKE.items) {
+    const ans = answers[item.id];
+    if (ans === undefined) continue;
+    lines.push(`・${item.question} → ${ans}`);
+  }
+  const scoreVals = collectScoreValues(moduleDef);
+  const hits = (moduleDef.suggested_conditions || []).filter(c => c.when.every(e => evalCondition(e, moduleDef, scoreVals))).map(c => c.label);
+  if (hits.length) {
+    lines.push('');
+    lines.push('## 確認の目安（診断ではない）');
+    lines.push(hits.map(h => `・${h}`).join('\n'));
+  }
+  return lines.join('\n');
+}
+
+document.getElementById('btn-analyze').onclick = analyzeConversation;
+document.getElementById('btn-soap').onclick = () => {
+  document.getElementById('soap-card').style.display = 'block';
+  document.getElementById('soap-output').value = buildSoapSummary();
+  document.getElementById('soap-card').scrollIntoView({ behavior: 'smooth' });
+};
+document.getElementById('btn-json').onclick = () => {
+  const card = document.getElementById('json-card');
+  card.style.display = card.style.display === 'none' ? 'block' : 'none';
+  document.getElementById('json-view').textContent = JSON.stringify(QB, null, 2);
+};
+document.getElementById('btn-reset').onclick = () => { answers = {}; render(); };
+
+render();
+</script>
+</body>
+</html>
