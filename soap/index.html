@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SOAP × 対話 事例ビューア</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <button id="menuBtn" class="menu" aria-label="絞り込み">☰ 絞り込み</button>
+  <div class="ttl">
+    <h1>SOAP × 対話 事例ビューア <span id="total" class="total"></span></h1>
+    <p>公開コーパス・公開資料から集めた，SOAP 記録とその元になった会話の例です．</p>
+  </div>
+  <input id="q" type="search" placeholder="キーワード検索（タイトル・タグ・対話・SOAP）">
+</header>
+<div class="layout">
+  <aside id="side" class="side">
+    <div id="cats"></div>
+    <div id="filters"></div>
+    <button id="reset" class="reset">絞り込みを解除</button>
+  </aside>
+  <main class="main">
+    <details class="about"><summary>このデータについて（調査結果の要約）</summary>
+      <table>
+        <tr><th>日本語</th><td>医療者と患者の<b>対話</b>と<b>SOAP</b>が対になった，自由に使える公開コーパスは見つかりませんでした．公開されている例は看護系サイト・学会資料の記載例が中心で，著作権のため本ビューアでは<b>概要とリンクのみ</b>を載せています．</td></tr>
+        <tr><th>英語</th><td>対話と診療ノートが対になった公開コーパスがあります（いずれも CC BY 4.0）．
+          <br>・<b>ACI-BENCH</b>（207件，外来の医師-患者対話＋診療ノート）
+          <br>・<b>MTS-Dialog</b>（1,701件中300件を収録，短い対話＋ノートの1項目）
+          <br>・<b>PriMock57</b>（57件，模擬診察）</td></tr>
+        <tr><th>日本語訳</th><td>英語の事例のうち循環器を中心に一部を Claude で機械翻訳しました（「日本語訳あり」で絞り込めます）．元のノートは SOAP 形式ではないため，内容を足さずに S/O/A/P へ機械的に振り分けています．</td></tr>
+        <tr><th>看護</th><td>看護師と患者の対話＋看護SOAPの公開コーパスは，日本語・英語とも見つかりませんでした．</td></tr>
+      </table>
+    </details>
+    <details class="about"><summary>出典とライセンス</summary>
+      <table>
+        <tr><th>ACI-BENCH</th><td>Yim, W. et al. "ACI-BENCH: a Novel Ambient Clinical Intelligence Dataset for Benchmarking Automatic Visit Note Generation." <i>Nature Scientific Data</i> (2023). <a href="https://github.com/wyim/aci-bench" target="_blank" rel="noopener">github.com/wyim/aci-bench</a>，<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a></td></tr>
+        <tr><th>MTS-Dialog</th><td>Ben Abacha, A. et al. "An Empirical Study of Clinical Note Generation from Doctor-Patient Encounters." <i>EACL 2023</i>. <a href="https://github.com/abachaa/MTS-Dialog" target="_blank" rel="noopener">github.com/abachaa/MTS-Dialog</a>，<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a></td></tr>
+        <tr><th>PriMock57</th><td>Papadopoulos Korfiatis, A. et al. "PriMock57: A Dataset of Primary Care Mock Consultations." <i>ACL 2022</i>. <a href="https://github.com/babylonhealth/primock57" target="_blank" rel="noopener">github.com/babylonhealth/primock57</a>，<a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a></td></tr>
+        <tr><th>合成会話</th><td>OnDeviceMedNotes/synthetic-medical-conversations-deepseek-v3（<a href="https://huggingface.co/datasets/OnDeviceMedNotes/synthetic-medical-conversations-deepseek-v3" target="_blank" rel="noopener">Hugging Face</a>），MIT License</td></tr>
+        <tr><th>リンクのみ</th><td>著作権のある Web ページ・資料は本文を載せず，概要（本ビューア作成者の要約）と元ページへのリンクのみを掲載しています．</td></tr>
+        <tr><th>改変</th><td>上記データを本ビューア用の形式に変換し，診療ノートの見出しを S/O/A/P に機械的に振り分けました．「日本語訳」の事例は Claude（AI）による機械翻訳です．元データの作成者は本ビューアの内容を保証・推奨するものではありません．</td></tr>
+        <tr><th>作成</th><td>豊橋技術科学大学 西村研究室（スマートホスピタル共同研究）．診療上の判断に用いるものではありません．</td></tr>
+      </table>
+    </details>
+    <div id="count" class="count"></div>
+    <div id="list" class="list"></div>
+    <button id="more" class="more" hidden>さらに表示</button>
+  </main>
+</div>
+<div id="detail" class="detail" hidden></div>
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
