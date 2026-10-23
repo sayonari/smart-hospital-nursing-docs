@@ -195,7 +195,7 @@ function itemsHtml(c){
     }).join("")+'</ol>':'<div class="nil">（該当項目なし）</div>')+'</div>';
   }).join("")+'</div>';
 }
-function reviewHtml(c){
+function reviewHtml(c){if(CHK)return "";
   var r=c.review||{},h='';
   if(c.change_summary)h+='<p>'+esc(c.change_summary)+'</p>';
   function list(t,a,f){if(a&&a.length)h+='<h5>'+t+'</h5><ul>'+a.map(f).join("")+'</ul>'}

@@ -278,7 +278,7 @@ function assessHtml(c){
   }
   return h;
 }
-function reviewHtml(c){
+function reviewHtml(c){if(CHECK)return "";
   var r=c.review;if(!r)return "";
   var sc=r.astra_scores||{};
   var h='<details class="rvw"><summary>GPT-6-Astra 査読</summary><div class="rv"><p>'+esc(r.astra_overall||"")+'</p>';

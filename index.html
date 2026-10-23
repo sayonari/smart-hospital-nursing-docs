@@ -18,7 +18,7 @@ h1{font-size:22px;margin:0 0 4px}
 .name button{font-size:15px;padding:9px 18px;border:0;border-radius:10px;background:var(--ac);color:#fff;font-weight:600;min-height:44px;cursor:pointer}
 .name .ok{color:#17663a;font-weight:600}
 .card{display:block;background:#fff;border:2px solid var(--line);border-radius:14px;padding:16px 18px;margin:12px 0;text-decoration:none;color:inherit}
-.card:hover,.card:focus{border-color:var(--ac)}
+a.card:hover,a.card:focus{border-color:var(--ac)}
 .card .no{display:inline-block;background:var(--ac);color:#fff;border-radius:999px;width:28px;height:28px;text-align:center;line-height:28px;font-weight:700;margin-right:6px}
 .card h2{display:inline;font-size:18.5px;color:var(--ac)}
 .card .what{margin:8px 0 4px}
@@ -48,12 +48,12 @@ h1{font-size:22px;margin:0 0 4px}
 <div class="name" id="nameBox"><input id="nm" type="text" placeholder="お名前（例：早川）" autocomplete="name"><button id="nmSave">保存</button><span id="nmMsg"></span></div>
 </div>
 
-<a class="card" href="app/#p/pressure_injury">
+<div class="card">
 <span class="no">1</span><h2>看護計画（基本 3 項目）</h2><span class="prog" data-p="plan/"></span>
 <p class="what">褥瘡・転倒・せん妄の標準看護計画．<b>中身が現場に合っているか</b>を見てください．</p>
 <p class="meta">各行に「OK／修正案／不要」を付け，ページ下にご意見を書けます．</p>
 <ul class="subs"><li><a href="app/#p/pressure_injury">褥瘡</a></li><li><a href="app/#p/fall_risk">転倒</a></li><li><a href="app/#p/delirium_risk">せん妄</a></li></ul>
-</a>
+</div>
 
 <a class="card" href="soap/?check=1">
 <span class="no">2</span><h2>SOAP の例</h2><span class="prog" data-p="soap/"></span>
