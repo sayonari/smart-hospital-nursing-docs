@@ -264,7 +264,7 @@ function soapHtml(c){
   return h+'</div>';
 }
 function assessHtml(c){
-  var h='<h3>チェック項目（'+esc((CI[c.problem_id]||{}).name||c.problem||"")+'）</h3><div class="tblw"><table class="chk"><tr><th>ID</th><th>項目名</th><th>mode</th><th>status</th><th>value</th><th>根拠</th></tr>';
+  var h='<h3>チェック項目（'+esc((CI[c.problem_id]||{}).name||c.problem||"")+'）</h3><div class="tblw"><table class="chk"><tr><th>ID</th><th>項目名</th><th>聞き方</th><th>判定</th><th>内容</th><th>根拠</th></tr>';
   (c.checklist||[]).forEach(function(x){
     var nm=checkName(c.problem_id,x.item)||"",md=checkMode(c.problem_id,x.item);
     h+='<tr class="cr" data-ev="'+esc(JSON.stringify(x.evidence||[]))+'"><td class="id">'+esc(x.item)+'</td><td>'+esc(nm)+'</td><td>'+esc(MODEL[md]||md||"")+'</td><td><span class="st '+esc(x.status)+'">'+esc(STL[x.status]||x.status)+'</span></td><td>'+esc(x.value||"")+'</td><td>'+evBadges(x.evidence)+'</td></tr>';
@@ -293,7 +293,7 @@ function openCase(c){
   var d=$("detail"),b=(c.type==="soap"?soapHtml(c):assessHtml(c));
   var badges='<span class="b '+c.type+'">'+(TYPEL[c.type]||c.type)+'</span> '+(c.problem?'<span class="b">'+esc(c.problem)+'</span>':'');
   var h='<div class="panel"><div class="ph"><div><h2>'+esc(c.title||c.id)+'</h2><div class="meta">'+badges+' '+esc(c.id)+'</div></div><button class="close" aria-label="閉じる">×</button></div><div class="pb'+(CHECK?' split':'')+'">'+(CHECK?'<div class="bar bar1">▲ 会話</div><div class="pa">':'');
-  h+=personsHtml(c)+'<div class="meta">場面：'+esc([c.scene,c.setting].filter(Boolean).join(" ／ "))+(c.variation?'<br>variation：'+esc(c.variation):'')+'</div>';
+  h+=personsHtml(c)+'<div class="meta">場面：'+esc([c.scene,c.setting].filter(Boolean).join(" ／ "))+(c.variation&&!CHECK?'<br>variation：'+esc(c.variation):'')+'</div>';
   if(CHECK)h+='<div class="jnote" style="margin-top:10px">違和感のある発話や項目の下の『修正案』を押して書いてください．問題なければ何も書かなくて OK です．</div>';
   else if(judgeOn)h+='<div class="jnote" style="margin-top:10px">確認モード：各発話・項目の下のボタンで OK／修正案などを選べます．選ぶと自動で送信されます（もう一度押すと取り消し）．</div>';
   var pl=c.audio?'<div class="player"><audio id="au" controls preload="none" src="'+esc(c.audio.src)+'"></audio></div>':'<div class="nopl">音声は準備中</div>';
