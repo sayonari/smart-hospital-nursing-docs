@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>内容確認のお願い｜スマートホスピタル</title>
 <style>
-:root{--ac:#0f766e;--ac-d:#0b5d57;--ac2:#e3f4f1;--ink:#1a1a1a;--sub:#555;--line:#d5dde6;--tag:#c2410c}
+:root{--ac:#0f766e;--ac-d:#0b5d57;--ac2:#e3f4f1;--go:#1d4ed8;--go-d:#1e3a8a;--ink:#1a1a1a;--sub:#555;--line:#d5dde6;--tag:#c2410c}
 *{box-sizing:border-box}
 body{font-family:"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif;font-size:16px;line-height:1.7;color:var(--ink);background:#eef2f5;margin:0}
 .wrap{max-width:760px;margin:0 auto;padding:20px 16px 64px}
@@ -16,28 +16,28 @@ h1{font-size:22px;margin:0 0 4px}
 .name{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
 .name label{font-weight:700}
 .name input{font-size:16px;padding:10px 12px;border:2px solid #b9c3cf;border-radius:10px;flex:1;min-width:10em;max-width:16em}
-.name input:focus{border-color:var(--ac);outline:none}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:var(--ac);color:#fff;border:0;border-radius:12px;padding:12px 20px;font-size:16px;font-weight:700;text-decoration:none;min-height:48px;cursor:pointer;box-shadow:0 2px 0 var(--ac-d)}
-.btn:hover,.btn:focus{background:var(--ac-d)}
+.name input:focus{border-color:var(--go);outline:none}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:var(--go);color:#fff;border:0;border-radius:12px;padding:12px 20px;font-size:16px;font-weight:700;text-decoration:none;min-height:48px;cursor:pointer;box-shadow:0 3px 0 var(--go-d),0 4px 10px rgba(29,78,216,.25)}
+.btn:hover,.btn:focus{background:var(--go-d)}
 .btn:active{transform:translateY(1px);box-shadow:none}
 .btn.wide{display:flex;width:100%;font-size:17px;margin-top:12px}
 .btn.sub{background:#fff;color:var(--ac);border:2px solid var(--ac);box-shadow:none}
 .btn.sub:hover{background:var(--ac2)}
 .name .ok{color:#17663a;font-weight:700}
 .card{background:#fff;border-radius:16px;margin:16px 0;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.1)}
-.card .hd{background:var(--ac);color:#fff;padding:10px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.card .no{background:#fff;color:var(--ac);border-radius:999px;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;font-weight:800;flex:none}
+.card .hd{background:var(--ac2);color:var(--ac-d);border-bottom:1px solid #cde9e3;padding:10px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.card .no{background:var(--ac);color:#fff;border-radius:999px;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;font-weight:800;flex:none}
 .card h2{font-size:19px;margin:0}
-.card .tag{background:#fff7ed;color:var(--tag);border-radius:999px;padding:1px 10px;font-size:13px;font-weight:700}
+.card .tag{background:#fff;color:var(--tag);border:1px solid #fdba74;border-radius:999px;padding:1px 10px;font-size:13px;font-weight:700}
 .card .bd{padding:12px 16px 16px}
 .card .what{margin:0 0 6px}
 .card .what b{background:#fff3b0;padding:0 3px}
 .card .meta{color:var(--sub);font-size:14px;margin:0}
-.prog{font-size:13px;color:#fff;opacity:.95;margin-left:auto;font-weight:600}
+.prog{font-size:13px;color:#17663a;margin-left:auto;font-weight:600}
 .three{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
 .three .btn{padding:12px 6px}
 .opt{margin-top:10px;text-align:right}
-.opt a{color:var(--ac);font-weight:700;font-size:14.5px}
+.opt a{color:var(--go);font-weight:700;font-size:14.5px}
 .note{background:#fff8e6;border:1px solid #ecd28c;border-radius:12px;padding:10px 14px;font-size:14px;margin-top:18px}
 .foot{color:var(--sub);font-size:12.5px;margin-top:26px}
 .foot a{color:var(--sub)}
@@ -52,7 +52,7 @@ h1{font-size:22px;margin:0 0 4px}
 <b>やり方</b>
 <ol>
 <li>お名前を入れる（最初の 1 回だけ）</li>
-<li>下の緑のボタンから開いて，文を読む</li>
+<li>下の青いボタンから開いて，文を読む</li>
 <li>直したい所だけ入力（問題なければ何も押さなくて OK）</li>
 <li>最後に「チェック完了」を押す（自動で送られます）</li>
 </ol>
