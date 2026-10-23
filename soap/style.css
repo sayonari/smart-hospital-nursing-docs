@@ -170,6 +170,7 @@ details .rv{font-size:12.5px;margin-top:6px}.rv h5{margin:8px 0 2px}.rv ul{margi
   .panel.split .cols{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;gap:0}
   .panel.split .cols .col,.panel.split .cols .col.show{display:block!important;flex:1 1 0;min-height:0;overflow:auto;-webkit-overflow-scrolling:touch;padding:0 10px 10px;overscroll-behavior:contain}
   .panel.split .cols .col[data-p="s"]{order:1}
+  .panel.split .cols .col{width:100%;max-width:none;align-self:stretch;box-sizing:border-box}
   .panel.split .cols .col[data-p="d"]{order:2;border-top:2px solid var(--accent)}
   .panel.split .col>h3{position:sticky;top:0;z-index:2;margin:0 -10px 8px;padding:4px 10px;background:#e3f1fb;color:#14578f;font-size:12.5px}
   .panel.split .pc{display:none}.panel.split .mo{display:inline}
