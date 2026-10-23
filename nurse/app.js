@@ -149,7 +149,7 @@ function selOpts(kind){
 function rvHtml(c,kind,path,label,text,ph){
   var r=qs.get(path)||{},K=KINDS[kind],pk=K.prop[r.s]||"";
   var h='<div class="jd" data-kind="'+kind+'" data-path="'+esc(path)+'" data-label="'+esc(label)+'" data-text="'+esc(text||"")+'">';
-  K.btns.forEach(function(b){h+='<button type="button" class="jb'+(r.s===b[0]?" on":"")+'" data-k="'+b[0]+'">'+b[1]+'</button>'});
+  K.btns.filter(function(b){return !(CHECK&&b[2]==="ok")}).forEach(function(b){h+='<button type="button" class="jb'+(r.s===b[0]?" on":"")+'" data-k="'+b[0]+'">'+b[1]+'</button>'});
   ["field","status"].forEach(function(sk){
     h+='<select class="js" data-sk="'+sk+'"'+(pk===sk?"":" hidden")+'><option value="">選択</option>'+selOpts(sk).map(function(o){return '<option value="'+o[0]+'"'+(pk===sk&&r.p===o[0]?" selected":"")+'>'+o[1]+'</option>'}).join("")+'</select>';
   });
@@ -196,12 +196,13 @@ function onJudgeChange(e){
 }
 function caseBoxHtml(c){
   var r=qs.get(c.id+"/case")||{};
-  return '<div class="jcase"><h3>この事例へのご意見（自由記述）</h3><textarea class="jcc" rows="3" maxlength="1000" placeholder="気づいたこと，ご意見など">'+esc(r.c||"")+'</textarea><div class="jcb"><button class="jsend">送信</button><span class="jmsg"></span></div></div>'+doneBoxHtml(c);
+  var hd=CHECK?"事例全体のご意見（会話の進み方や内容で，現場と違うと感じたところ）":"この事例へのご意見（自由記述）",ph=CHECK?"会話の進み方や内容で，現場と違うと感じたところを書いてください（任意）":"気づいたこと，ご意見など";
+  return '<div class="jcase"><h3>'+hd+'</h3><textarea class="jcc" rows="3" maxlength="1000" placeholder="'+ph+'">'+esc(r.c||"")+'</textarea><div class="jcb"><button class="jsend">送信</button><span class="jmsg"></span></div></div>'+doneBoxHtml(c);
 }
 function doneBoxHtml(c){
   if(!RD)return "";
   var me=qName(),ns=doneNames(c),mine=me&&ns.indexOf(me)>=0;
-  return '<div class="jdone">'+(mine?'<button class="jdbtn jdbtn-on" data-d="0">確認完了済み（取り消す）</button>':'<button class="jdbtn" data-d="1">この事例の確認を完了する</button>')
+  return '<div class="jdone">'+(mine?'<button class="jdbtn jdbtn-on" data-d="0">チェック完了済み（取り消す）</button>':'<button class="jdbtn" data-d="1">チェック完了</button>')
     +'<div class="jdwho">'+(ns.length?'確認済み：'+esc(ns.map(function(x){return x+"様"}).join("・")):'')+'</div></div>';
 }
 function onDoneClick(e){
@@ -291,13 +292,21 @@ function openCase(c){
   curCase=c;
   var d=$("detail"),b=(c.type==="soap"?soapHtml(c):assessHtml(c));
   var badges='<span class="b '+c.type+'">'+(TYPEL[c.type]||c.type)+'</span> '+(c.problem?'<span class="b">'+esc(c.problem)+'</span>':'');
-  var h='<div class="panel"><div class="ph"><div><h2>'+esc(c.title||c.id)+'</h2><div class="meta">'+badges+' '+esc(c.id)+'</div></div><button class="close" aria-label="閉じる">×</button></div><div class="pb">';
+  var h='<div class="panel"><div class="ph"><div><h2>'+esc(c.title||c.id)+'</h2><div class="meta">'+badges+' '+esc(c.id)+'</div></div><button class="close" aria-label="閉じる">×</button></div><div class="pb'+(CHECK?' split':'')+'">'+(CHECK?'<div class="bar bar1">▲ 会話</div><div class="pa">':'');
   h+=personsHtml(c)+'<div class="meta">場面：'+esc([c.scene,c.setting].filter(Boolean).join(" ／ "))+(c.variation?'<br>variation：'+esc(c.variation):'')+'</div>';
-  if(judgeOn)h+='<div class="jnote" style="margin-top:10px">確認モード：各発話・項目の下のボタンで OK／修正案などを選べます．選ぶと自動で送信されます（もう一度押すと取り消し）．</div>';
-  h+='<h3>音声</h3>'+(c.audio?'<div class="player"><audio id="au" controls preload="none" src="'+esc(c.audio.src)+'"></audio></div>':'<div class="nopl">音声は準備中</div>');
+  if(CHECK)h+='<div class="jnote" style="margin-top:10px">違和感のある発話や項目の下の『修正案』を押して書いてください．問題なければ何も書かなくて OK です．</div>';
+  else if(judgeOn)h+='<div class="jnote" style="margin-top:10px">確認モード：各発話・項目の下のボタンで OK／修正案などを選べます．選ぶと自動で送信されます（もう一度押すと取り消し）．</div>';
+  var pl=c.audio?'<div class="player"><audio id="au" controls preload="none" src="'+esc(c.audio.src)+'"></audio></div>':'<div class="nopl">音声は準備中</div>';
+  if(CHECK){
+    h+='<details class="aud"><summary>音声（おまけ）</summary>'+pl+'</details>';
+    h+=dialogueHtml(c)+'</div>';
+    h+='<div class="bar bar2">▼ チェック項目</div><div class="pc">'+b+reviewHtml(c)+caseBoxHtml(c)+'</div>';
+    h+='</div></div>';
+  }else{
+  h+='<h3>音声</h3>'+pl;
   h+='<h3>対話</h3>'+dialogueHtml(c)+b+reviewHtml(c);
   if(judgeOn)h+=caseBoxHtml(c);
-  h+='</div></div>';
+  h+='</div></div>';}
   d.innerHTML=h;d.hidden=false;document.body.style.overflow="hidden";
   setupAudio(c);
 }
@@ -373,7 +382,7 @@ function setJudge(on){
   judgeOn=on;var b=$("judgeBtn");b.classList.toggle("on",on);b.textContent="確認モード："+(on?"ON":"OFF");
 }
 function showNote(){
-  $("chkNote").innerHTML=CHECK?'<b>対話と記録の文を読んで，おかしな所に修正案を書いてください．</b>最後に『確認を完了する』を押してください．入力は自動で送信されます．一部の対話には合成音声が付いていますが，おまけです（聞かなくてかまいません）．'
+  $("chkNote").innerHTML=CHECK?'<b>実際の看護の場面でありそうな会話かを見てください．</b>違和感があれば，その発話や項目に修正案を書いてください．問題なければ何も書かなくて OK です．最後に『チェック完了』を押してください．音声はおまけなので聞かなくて大丈夫です．'
     :'合成音声が付いている対話もありますが，おまけです（聞かなくてかまいません）．';
 }
 if(RD)RD.init({url:SYN.url||"",key:SYN.key||"",onChange:function(){renderList();if(curCase&&!$("detail").hidden){var box=$("detail").querySelector(".jdone");if(box)box.outerHTML=doneBoxHtml(curCase)}}});

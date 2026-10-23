@@ -66,7 +66,7 @@ function card(c,i){
   if(c.setting)b+='<span class="b">'+esc(c.setting)+'</span>';
   if(c.record_type)b+='<span class="b">'+esc(c.record_type)+'</span>';
   var n=(c.dialogue||[]).length;
-  if(c.refined){var jc=judgedCount(c);if(jc)b+='<span class="b jdn">判定済み '+jc+'/'+c.soap_items.length+'</span>'}
+  if(c.refined){var jc=judgedCount(c);if(jc)b+='<span class="b jdn">指摘あり '+jc+' 件</span>'}
   var rb=RD?RD.badge("soap/"+c.id):"";
   return '<div class="card" data-i="'+i+'" data-id="'+esc(c.id)+'"><div class="badges">'+b+'</div><h2>'+esc(c.title)+'</h2><div class="tags">'+(c.tags||[]).map(function(t){return'<span>'+esc(t)+'</span>'}).join("")+'</div><div class="meta">'+esc((c.source||{}).name||"")+(n?' ・ 発話 '+n:'')+'</div>'+(rb?'<div class="rdrow">'+rb+'</div>':'')+'</div>';
 }
@@ -133,7 +133,7 @@ var sync={
 window.addEventListener("online",function(){sync.flush()});
 document.addEventListener("visibilitychange",function(){if(document.visibilityState==="visible")sync.flush()});
 function itemOf(c,no){return c.soap_items.filter(function(x){return x.no===no})[0]}
-function jStat(r){return r.status==="欄が違う"?(r.proposal?"欄が違う→"+r.proposal:""):(r.status||"")}
+function jStat(r){if(r.status==="適切")return "";return r.status==="欄が違う"?(r.proposal?"欄が違う→"+r.proposal:""):(r.status||"")}
 function judgedCount(c){var n=0;(c.soap_items||[]).forEach(function(it){var r=qs.get(c.id+"/"+it.no);if(r&&jStat(r))n++});return n}
 function sendItem(c,it,r){
   var s=jStat(r);if(!s)return;
@@ -146,19 +146,19 @@ function jSave(c,no,patch){
 }
 function judgeHtml(c,it){
   var r=qs.get(c.id+"/"+it.no)||{};
-  var h='<div class="jd" data-no="'+it.no+'">'+["適切","欄が違う","対話に根拠なし","不要"].map(function(b){return '<button class="jb'+(r.status===b?' on':'')+'" data-j="'+b+'">'+b+'</button>'}).join("");
+  var h='<div class="jd" data-no="'+it.no+'">'+["欄が違う","対話に根拠なし","不要"].map(function(b){return '<button class="jb'+(r.status===b?' on':'')+'" data-j="'+b+'">'+b+'</button>'}).join("");
   if(r.status==="欄が違う")h+='<span class="jf">正しい欄：'+["S","O","A","P"].filter(function(x){return x!==it.field}).map(function(x){return '<button class="jb jp'+(r.proposal===x?' on':'')+'" data-p="'+x+'">'+x+'</button>'}).join("")+'</span>';
   return h+'<input class="jc" type="text" maxlength="300" placeholder="コメント（任意）" value="'+esc(r.comment||"")+'"></div>';
 }
 function caseBoxHtml(c){
   var r=qs.get(c.id+"/case")||{};
-  return '<div class="jcase"><h3>この事例へのご意見（自由記述）</h3><textarea class="jcc" rows="3" maxlength="1000" placeholder="気づいたこと，ご意見など">'+esc(r.comment||"")+'</textarea><div class="jcb"><button class="jsend">送信</button><span class="jmsg">'+(r.sent?'送信しました':'')+'</span>'+(judgeOn&&c.refined&&!RD?'<button class="jdone'+(r.done?' on':'')+'">'+(r.done?'判定を完了済み（取り消す）':'この事例の判定を完了')+'</button>':'')+'</div></div>';
+  return '<div class="jcase"><h3>この事例へのご意見（自由記述）</h3><textarea class="jcc" rows="3" maxlength="1000" placeholder="気づいたこと，ご意見など">'+esc(r.comment||"")+'</textarea><div class="jcb"><button class="jsend">送信</button><span class="jmsg">'+(r.sent?'送信しました':'')+'</span>'+(judgeOn&&c.refined&&!RD?'<button class="jdone'+(r.done?' on':'')+'">'+(r.done?'チェック完了済み（取り消す）':'チェック完了')+'</button>':'')+'</div></div>';
 }
 function doneKey(c){return "soap/"+c.id}
 function doneHtml(c){
   if(!RD||!judgeOn||!c.refined)return "";
   var k=doneKey(c),nm=RD.names(k),me=qName(),mine=!!me&&nm.indexOf(me)>=0;
-  return '<div class="jdw"><button class="rdbtn'+(mine?' on':'')+'">'+(mine?'確認完了済み（取り消す）':'この事例の確認を完了する')+'</button>'+(nm.length?'<div class="rdwho">確認済み：'+nm.map(function(x){return esc(x)+'様'}).join("・")+'</div>':'')+'</div>';
+  return '<div class="jdw"><button class="rdbtn'+(mine?' on':'')+'">'+(mine?'チェック完了済み（取り消す）':'チェック完了')+'</button>'+(nm.length?'<div class="rdwho">確認済み：'+nm.map(function(x){return esc(x)+'様'}).join("・")+'</div>':'')+'</div>';
 }
 function refreshDone(){
   if(!curCase||$("detail").hidden)return;
@@ -177,6 +177,9 @@ function caseSend(c,box,done){
 }
 // 詳細
 var detailMode="ja";
+var MQ=window.matchMedia("(max-width:760px)"),placeTailFn=null;
+var mqf=function(){if(placeTailFn&&curCase&&!$("detail").hidden)placeTailFn()};
+if(MQ.addEventListener)MQ.addEventListener("change",mqf);else if(MQ.addListener)MQ.addListener(mqf);
 function soapHtml(o){
   o=o||{};var names={S:"S 主観的情報",O:"O 客観的情報",A:"A 評価",P:"P 計画"};
   return '<div class="soap">'+["S","O","A","P"].map(function(k){var v=o[k];return '<div class="sc '+k+'"><h4>'+names[k]+'</h4><div'+(v?'':' class="nil"')+'>'+(v?esc(v):'（記載なし）')+'</div></div>'}).join("")+'</div>';
@@ -191,7 +194,7 @@ function itemsHtml(c){
       if(it.support==="note_only")b+='<span class="ib no">対話に根拠なし</span>';else if(it.support==="partial")b+='<span class="ib pa">一部根拠</span>';
       if(it.change==="moved")b+='<span class="ib mv">'+esc((it.moved_from||"?")+"→"+it.field)+' に移動</span>';else if(it.change==="split")b+='<span class="ib sp">分割</span>';
       if(it.disputed)b+='<span class="ib dp">要確認</span>';
-      return '<li class="it" data-no="'+it.no+'" data-ev="'+(it.evidence||[]).join(",")+'"><span class="itn">'+it.no+'</span><span class="itt">'+esc(it.text)+'</span>'+(b?'<span class="ibs">'+b+'</span>':'')+(judgeOn?judgeHtml(c,it):'')+'</li>';
+      return '<li class="it" data-no="'+it.no+'" data-ev="'+(it.evidence||[]).join(",")+'"><span class="itn">'+it.no+'</span><span class="itt">'+esc(it.text)+'</span>'+(b?'<span class="ibs">'+b+'</span>':'')+(CHK&&(it.evidence||[]).length?'<span class="see">会話を見る ▼</span>':'')+(judgeOn?judgeHtml(c,it):'')+'</li>';
     }).join("")+'</ol>':'<div class="nil">（該当項目なし）</div>')+'</div>';
   }).join("")+'</div>';
 }
@@ -215,7 +218,8 @@ function spOrig(c){return c.speakers_original||{doctor:"Doctor",patient:"Patient
 function openCase(c){
   curCase=c;var sel=null;
   var l=langOf(c),s=c.source||{};
-  var h='<div class="panel"><div class="ph"><div><h2>'+esc(c.title)+'</h2><div class="badges"><span class="b cat" style="background:'+(COL[c.category]||COL["その他"])+'">'+esc(c.category||"その他")+'</span>'+(c.setting?'<span class="b">'+esc(c.setting)+'</span>':'')+(c.record_type?'<span class="b">'+esc(c.record_type)+'</span>':'')+(c.tags||[]).map(function(t){return'<span class="b">#'+esc(t)+'</span>'}).join("")+'</div></div><button class="x" id="closeD">閉じる</button></div><div class="pb">'+(c.refined&&judgeOn?'<div class="jnote">各項目が S/O/A/P のどれに当たるか，対話に根拠があるかを判定してください．<br>項目をタップすると根拠の発話が強調されます．<br>回答は西村研のスプレッドシートへ自動で送られます．</div>':'');
+  var split=CHK&&!!c.refined&&!isLink(c);
+  var h='<div class="panel'+(split?' split':'')+'"><div class="ph"><div><h2>'+esc(c.title)+'</h2><div class="badges"><span class="b cat" style="background:'+(COL[c.category]||COL["その他"])+'">'+esc(c.category||"その他")+'</span>'+(c.setting?'<span class="b">'+esc(c.setting)+'</span>':'')+(c.record_type?'<span class="b">'+esc(c.record_type)+'</span>':'')+(c.tags||[]).map(function(t){return'<span class="b">#'+esc(t)+'</span>'}).join("")+'</div></div><button class="x" id="closeD">閉じる</button></div><div class="pb">'+(c.refined&&judgeOn&&!CHK?'<div class="jnote">各項目が S/O/A/P のどれに当たるか，対話に根拠があるかを判定してください．<br>項目をタップすると根拠の発話が強調されます．<br>回答は西村研のスプレッドシートへ自動で送られます．</div>':'');
   if(isLink(c)){
     var u=s.item_url||s.url||"";
     h+='<div class="linkonly"><p>'+esc(c.summary||"")+'</p>'+(u?'<a href="'+esc(u)+'" target="_blank" rel="noopener">元のページを開く ↗</a>':'')+'</div><div class="mt">著作権の都合で本文は掲載せず，リンクのみ紹介しています．</div>';
@@ -224,14 +228,22 @@ function openCase(c){
     if(hasOrig){h+='<div class="bar"><div class="seg" id="modeSeg"><button data-m="ja">日本語訳</button><button data-m="en">英語原文</button><button data-m="both">並べて表示</button></div><span class="mt">日本語訳は機械翻訳（Claude 訳）です．正確な内容は英語原文をご確認ください．</span></div>'}
     h+='<div class="tabs seg" id="tabSeg"><button data-t="d" class="on">対話</button><button data-t="s">SOAP</button></div><div id="body"></div>';
   }
-  h+=caseBoxHtml(c)+doneHtml(c);
+  h+='<div id="tail">'+caseBoxHtml(c)+doneHtml(c)+'</div>';
   h+='<div class="foot"><div>出典：'+(s.url?'<a href="'+esc(s.url)+'" target="_blank" rel="noopener">'+esc(s.name)+'</a>':esc(s.name||""))+(s.item_url&&!isLink(c)?' ・ <a href="'+esc(s.item_url)+'" target="_blank" rel="noopener">元データ</a>':'')+'</div><div>ライセンス：'+esc(s.license||"未記載")+'</div>'+(s.citation?'<div>引用：'+esc(s.citation)+'</div>':'')+(c.notes?'<div>備考：'+esc(c.notes)+'</div>':'')+(c.refined?reviewHtml(c):'')+(c.note_original_raw?'<details><summary>元のノート（原文のまま）</summary><pre>'+esc(c.note_original_raw)+'</pre></details>':'')+'</div></div></div>';
   var d=$("detail");d.innerHTML=h;d.hidden=false;document.body.style.overflow="hidden";
   $("closeD").onclick=function(){closeCase(true)};
   if(!isLink(c)){
     detailMode=l==="en"?"en":"ja";
     var seg=$("modeSeg");
+    function placeTail(out){
+      var tail=$("tail"),bd=$("body");if(!tail||!bd)return;
+      var colS=bd.querySelector('.col[data-p="s"]');
+      if(!out&&split&&MQ.matches&&colS)colS.appendChild(tail);
+      else if(tail.parentNode!==bd.parentNode)bd.parentNode.insertBefore(tail,bd.nextSibling);
+    }
+    placeTailFn=function(){placeTail(false)};
     function draw(){
+      placeTail(true);
       var m=detailMode,bd=$("body");
       function col(title,dlg,soap,sp,cls){return '<div class="col '+cls+'" data-p="d"><h3>'+title+'・対話</h3>'+chatHtml(dlg,sp)+'</div><div class="col '+cls+'" data-p="s"><h3>'+title+'・SOAP</h3>'+soapHtml(soap)+'</div>'}
       var R=!!c.soap_items,ja=[c.dialogue,c.soap,c.speakers],en=[c.dialogue_original,c.soap_original,spOrig(c)];
@@ -242,11 +254,11 @@ function openCase(c){
       }else{
         var x=(m==="en"&&hasOrig)?en:ja;
         bd.className="";
-        bd.innerHTML='<div class="cols"><div class="col show" data-p="d"><h3>対話</h3>'+chatHtml(x[0],x[2],R)+'</div><div class="col" data-p="s"><h3>SOAP</h3>'+((R&&x===ja)?itemsHtml(c):soapHtml(x[1]))+'</div></div>';
+        bd.innerHTML='<div class="cols"><div class="col show" data-p="d"><h3><span class="pc">対話</span><span class="mo">▼ 会話</span></h3>'+chatHtml(x[0],x[2],R)+'</div><div class="col" data-p="s"><h3><span class="pc">SOAP</span><span class="mo">▲ SOAP の項目</span></h3>'+((R&&x===ja)?itemsHtml(c):soapHtml(x[1]))+'</div></div>';
         tab(window.__tab||"d");
       }
       if(seg)Array.prototype.forEach.call(seg.children,function(b){b.className=b.getAttribute("data-m")===m?"on":""});
-      applySel();
+      applySel();placeTail(false);
     }
     function applySel(){
       Array.prototype.forEach.call(document.querySelectorAll("#body .msg.hl,#body .it.sel"),function(e){e.classList.remove("hl","sel")});
@@ -262,6 +274,10 @@ function openCase(c){
       if(!ev.length)return;
       if(window.innerWidth<=900&&detailMode!=="both")tab("d");
       var m=document.querySelector('#body .msg[data-n="'+ev[0]+'"]');
+      if(split&&MQ.matches&&m&&m.offsetParent){
+        var col=m.closest(".col"),cr=col.getBoundingClientRect(),mr=m.getBoundingClientRect();
+        col.scrollTo({top:col.scrollTop+(mr.top-cr.top)-(col.clientHeight-mr.height)/2,behavior:"smooth"});return;
+      }
       if(m&&m.offsetParent)m.scrollIntoView({block:"center",behavior:"smooth"});
     }
     var bodyEl=$("body");
@@ -321,7 +337,7 @@ function openCase(c){
 }
 var opened=false;
 function closeCase(push){
-  var d=$("detail");d.hidden=true;d.innerHTML="";document.body.style.overflow="";curCase=null;renderList();
+  var d=$("detail");d.hidden=true;d.innerHTML="";document.body.style.overflow="";curCase=null;placeTailFn=null;renderList();
   if(push&&/^#c\//.test(location.hash)){history.back();return}
   opened=false;
 }
@@ -353,7 +369,8 @@ $("nameBtn").onclick=function(){var o=qName();qs.del("_name");askName(function()
 try{if(!qName()){var rn0=localStorage.getItem("review_name");if(rn0)qs.set("_name",rn0)}}catch(_){}
 if(CHK){
   var jb0=$("judgeBtn");jb0.classList.add("on");jb0.textContent="判定モード：ON";jb0.hidden=true;
-  var cn=$("chkNote");if(cn){cn.textContent="各項目が S／O／A／P のどれに当たるか，対話に根拠があるかを見てください．最後に『確認を完了する』を押してください．入力は自動で送信されます．";cn.hidden=false}
+  var cn=$("chkNote");if(cn){cn.textContent="おかしな項目だけ『欄が違う』などを押してください．問題なければ何も押さなくて OK です．最後に『チェック完了』を押してください．項目をタップすると，会話の根拠の部分が光ります．";cn.hidden=false}
+  var ca=$("chkAsk");if(ca){ca.textContent="できるだけ多く見ていただけると助かります（2〜3 件だけでも大歓迎です）．確認済みのものは後回しに．";ca.hidden=false}
 }
 if(RD)RD.init({url:SYN.url||"",key:SYN.key||"",onChange:function(){renderList();refreshDone()}});
 showName();sync.show();sync.flush();

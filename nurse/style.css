@@ -140,3 +140,23 @@ details.rvw summary{cursor:pointer;font-weight:600;color:#14578f}
 .jdbtn{width:100%;min-height:52px;font-size:17px;font-weight:700;border-radius:12px;border:2px solid #0f766e;background:#0f766e;color:#fff;cursor:pointer}
 .jdbtn.jdbtn-on{background:#fff;color:#0f766e}
 .jdwho{margin-top:8px;font-size:14px;color:#17663a;font-weight:600}
+
+/* 確認用（?check=1）：ボタンは押しやすく，スマホは上下 2 分割 */
+.jb{min-height:40px;padding:6px 14px}
+.jd select{min-height:40px}
+.jsend{min-height:40px}
+.bar{display:none}
+details.aud{margin:10px 0;border:1px solid var(--line);border-radius:8px;padding:4px 10px;background:#f7fafc}
+details.aud summary{cursor:pointer;font-size:13px;color:var(--sub);min-height:32px;line-height:32px}
+details.aud .player{position:static;border:0;margin:0}
+@media(max-width:760px){
+  .panel{height:100dvh;max-height:100dvh}
+  .ph{flex:none;padding:8px 12px}
+  .ph h2{font-size:16px}
+  .close{width:44px;height:44px}
+  .pb.split{display:flex;flex-direction:column;overflow:hidden;padding:0;flex:1;min-height:0}
+  .pb.split .bar{display:block;flex:none;background:#14578f;color:#fff;font-size:13px;font-weight:700;padding:3px 12px}
+  .pb.split .pa,.pb.split .pc{flex:1 1 0;min-height:0;overflow:auto;padding:8px 12px 24px;-webkit-overflow-scrolling:touch}
+  .pb.split .pc{background:#fbfdff}
+  .pb.split .people{font-size:12.5px}
+}
