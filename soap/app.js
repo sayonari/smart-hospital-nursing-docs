@@ -177,7 +177,7 @@ function caseSend(c,box,done){
 }
 // 詳細
 var detailMode="ja";
-var MQ=window.matchMedia("(max-width:760px)"),placeTailFn=null;
+var MQ=window.matchMedia("all")  /* 上下 2 分割は端末を問わず常に */,placeTailFn=null;
 var mqf=function(){if(placeTailFn&&curCase&&!$("detail").hidden)placeTailFn()};
 if(MQ.addEventListener)MQ.addEventListener("change",mqf);else if(MQ.addListener)MQ.addListener(mqf);
 function soapHtml(o){

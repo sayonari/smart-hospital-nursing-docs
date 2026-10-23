@@ -160,3 +160,9 @@ details.aud .player{position:static;border:0;margin:0}
   .pb.split .pc{background:#fbfdff}
   .pb.split .people{font-size:12.5px}
 }
+/* 確認用（check=1）は端末を問わず上下 2 分割 */
+.panel:has(>.pb.split){height:100%}
+.pb.split{display:flex;flex-direction:column;overflow:hidden;padding:0;flex:1;min-height:0}
+.pb.split .bar{display:block;flex:none;background:#14578f;color:#fff;font-size:13px;font-weight:700;padding:3px 12px}
+.pb.split .pa,.pb.split .pc{flex:1 1 0;min-height:0;overflow:auto;padding:8px 14px 24px;-webkit-overflow-scrolling:touch}
+.pb.split .pc{background:#fbfdff}
