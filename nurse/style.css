@@ -135,3 +135,8 @@ details.rvw summary{cursor:pointer;font-weight:600;color:#14578f}
   .msg{max-width:96%}
   .pb{padding:12px 12px 30px}
 }
+.chknote{margin:8px 12px;padding:10px 14px;background:#fff8e1;border:1px solid #f0d98a;border-radius:10px;font-size:14px;line-height:1.7}
+.jdone{margin-top:16px;text-align:center}
+.jdbtn{width:100%;min-height:52px;font-size:17px;font-weight:700;border-radius:12px;border:2px solid #0f766e;background:#0f766e;color:#fff;cursor:pointer}
+.jdbtn.jdbtn-on{background:#fff;color:#0f766e}
+.jdwho{margin-top:8px;font-size:14px;color:#17663a;font-weight:600}

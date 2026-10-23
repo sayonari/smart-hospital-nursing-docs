@@ -141,3 +141,10 @@ details .rv{font-size:12.5px;margin-top:6px}.rv h5{margin:8px 0 2px}.rv ul{margi
 .nbox{background:#fff;border-radius:12px;padding:18px;max-width:380px;width:100%}
 .nbox p{margin:0 0 10px;font-size:14px}.nbox input{width:100%;padding:9px;border:1px solid var(--line);border-radius:8px;font-size:16px}
 .nbt{display:flex;gap:8px;margin-top:12px;justify-content:flex-end}.nbt button{padding:7px 14px;border:1px solid var(--accent);background:#fff;color:var(--accent);border-radius:8px;cursor:pointer}.nbt .ok{background:var(--accent);color:#fff}
+
+.chknote{background:#e8f4fd;border:1px solid #9cc9ea;border-radius:10px;margin:8px 12px;padding:10px 14px;font-size:15px;line-height:1.6}
+.rdrow{margin-top:6px}
+.jdw{margin-top:16px;padding-bottom:8px}
+.rdbtn{display:block;width:100%;min-height:48px;border:2px solid #0f766e;background:#0f766e;color:#fff;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer}
+.rdbtn.on{background:#fff;color:#0f766e}
+.rdwho{margin-top:8px;font-size:14px;color:#17663a;font-weight:600}

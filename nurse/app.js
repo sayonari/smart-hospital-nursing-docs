@@ -60,6 +60,7 @@ function cardHtml(c){
   if(c.type==="assess")b+=missCount(c)?'<span class="b miss">聞き忘れ '+missCount(c)+'</span>':'<span class="b nomiss">聞き忘れなし</span>';
   if(c.review)b+='<span class="b rv">査読済み</span>';
   if(c.audio)b+='<span class="b au">音声あり</span>';
+  if(RD)b+=RD.badge(dkey(c));
   var p=c.patient||{};
   return '<div class="card" data-id="'+esc(c.id)+'"><h2>'+esc(c.title||c.id)+'</h2>'
     +'<div class="pt">'+esc([p.name&&p.name+"さん",p.age&&p.age+"歳",p.sex,p.disease].filter(Boolean).join("・"))+'</div>'
@@ -84,13 +85,20 @@ var qs={
   set:function(k,v){try{localStorage.setItem(QP+k,JSON.stringify(v))}catch(_){}},
   del:function(k){try{localStorage.removeItem(QP+k)}catch(_){}}
 };
+var RD=window.ReviewDone;
+function lsName(){try{return localStorage.getItem("review_name")||""}catch(_){return ""}}
 function qName(){return qs.get("_name")||""}
+function setName(v){qs.set("_name",v);try{localStorage.setItem("review_name",v)}catch(_){}}
+if(!qName()&&lsName())qs.set("_name",lsName());
+var CHECK=/[?&]check=1(&|$)/.test(location.search);
+function dkey(c){return "ndlg/"+c.id}
+function doneNames(c){return RD?RD.names(dkey(c)):[]}
 function askName(cb){
   if(qName()){cb();return}
   var o=document.createElement("div");o.className="nmodal";
   o.innerHTML='<div class="nbox"><p>確認者のお名前を入力してください（記入内容に添えて記録されます）．</p><input type="text" maxlength="40" placeholder="お名前"><div class="nbt"><button class="ok">保存して続ける</button><button class="ng">キャンセル</button></div></div>';
   document.body.appendChild(o);var inp=o.querySelector("input");inp.focus();
-  function done(ok){var v=inp.value.trim();if(ok&&!v){inp.focus();return}document.body.removeChild(o);if(ok){qs.set("_name",v);showName();cb()}}
+  function done(ok){var v=inp.value.trim();if(ok&&!v){inp.focus();return}document.body.removeChild(o);if(ok){setName(v);showName();cb()}}
   o.querySelector(".ok").onclick=function(){done(true)};o.querySelector(".ng").onclick=function(){done(false)};
   inp.onkeydown=function(e){if(e.key==="Enter")done(true)};
 }
@@ -188,7 +196,21 @@ function onJudgeChange(e){
 }
 function caseBoxHtml(c){
   var r=qs.get(c.id+"/case")||{};
-  return '<div class="jcase"><h3>この事例へのご意見（自由記述）</h3><textarea class="jcc" rows="3" maxlength="1000" placeholder="気づいたこと，ご意見など">'+esc(r.c||"")+'</textarea><div class="jcb"><button class="jsend">送信</button><span class="jmsg"></span></div></div>';
+  return '<div class="jcase"><h3>この事例へのご意見（自由記述）</h3><textarea class="jcc" rows="3" maxlength="1000" placeholder="気づいたこと，ご意見など">'+esc(r.c||"")+'</textarea><div class="jcb"><button class="jsend">送信</button><span class="jmsg"></span></div></div>'+doneBoxHtml(c);
+}
+function doneBoxHtml(c){
+  if(!RD)return "";
+  var me=qName(),ns=doneNames(c),mine=me&&ns.indexOf(me)>=0;
+  return '<div class="jdone">'+(mine?'<button class="jdbtn jdbtn-on" data-d="0">確認完了済み（取り消す）</button>':'<button class="jdbtn" data-d="1">この事例の確認を完了する</button>')
+    +'<div class="jdwho">'+(ns.length?'確認済み：'+esc(ns.map(function(x){return x+"様"}).join("・")):'')+'</div></div>';
+}
+function onDoneClick(e){
+  var b=e.target.closest(".jdbtn");if(!b||!curCase||!RD)return;
+  var c=curCase,d=b.dataset.d==="1";
+  askName(function(){
+    RD.mark(dkey(c),entityOf(c),qName(),d);
+    var box=$("detail").querySelector(".jdone");if(box)box.outerHTML=doneBoxHtml(c);
+  });
 }
 function onCaseSend(e){
   if(!e.target.closest(".jsend")||!curCase)return;
@@ -328,12 +350,14 @@ $("side").addEventListener("click",function(e){if(e.target.closest(".opt,#reset"
 $("more").onclick=function(){st.shown+=PAGE;renderList()};
 $("list").addEventListener("click",function(e){
   var cd=e.target.closest(".card");if(!cd)return;
-  var c=ALL.filter(function(x){return x.id===cd.dataset.id})[0];if(c)openCase(c);
+  var c=ALL.filter(function(x){return x.id===cd.dataset.id})[0];if(!c)return;
+  if(RD)RD.guard(dkey(c),qName(),function(){openCase(c)},function(){});else openCase(c);
 });
 $("detail").addEventListener("click",function(e){
   if(e.target===this||e.target.closest(".close")){closeCase();return}
   var pl=e.target.closest(".pl");if(pl){playSeg(+pl.dataset.i);return}
   if(e.target.closest(".jd")){onJudgeClick(e);return}
+  if(e.target.closest(".jdone")){onDoneClick(e);return}
   if(e.target.closest(".jcase")){onCaseSend(e);return}
   var el=e.target.closest(".it,.cr");if(el)hlEvidence(el);
 });
@@ -345,6 +369,15 @@ $("judgeBtn").onclick=function(){
   if(judgeOn&&!qName())askName(function(){});
   if(curCase&&!$("detail").hidden){var c=curCase,a=$("au"),pos=a?a.currentTime:0,top=$("detail").querySelector(".pb").scrollTop;openCase(c);var a2=$("au");if(a2&&pos)a2.currentTime=pos;$("detail").querySelector(".pb").scrollTop=top}
 };
+function setJudge(on){
+  judgeOn=on;var b=$("judgeBtn");b.classList.toggle("on",on);b.textContent="確認モード："+(on?"ON":"OFF");
+}
+function showNote(){
+  $("chkNote").innerHTML=CHECK?'<b>対話と記録の文を読んで，おかしな所に修正案を書いてください．</b>最後に『確認を完了する』を押してください．入力は自動で送信されます．一部の対話には合成音声が付いていますが，おまけです（聞かなくてかまいません）．'
+    :'合成音声が付いている対話もありますが，おまけです（聞かなくてかまいません）．';
+}
+if(RD)RD.init({url:SYN.url||"",key:SYN.key||"",onChange:function(){renderList();if(curCase&&!$("detail").hidden){var box=$("detail").querySelector(".jdone");if(box)box.outerHTML=doneBoxHtml(curCase)}}});
+showNote();if(CHECK)setJudge(true);
 $("nameBtn").onclick=function(){qs.del("_name");askName(function(){})};
 showName();sync.show();sync.flush();refresh();
 })();

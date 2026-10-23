@@ -6,7 +6,9 @@ ALL.forEach(function(c,i){c._o=i});ALL.sort(function(a,b){return rk(a)-rk(b)||a.
 var CATS=["循環器","呼吸器","消化器","内分泌・代謝","神経","筋骨格・整形","腎・泌尿器","感染症","精神・心理","皮膚","小児","産婦人科","看護ケア","救急・外傷","その他"];
 var COL={"循環器":"#d64550","呼吸器":"#2a9fc9","消化器":"#b8860b","内分泌・代謝":"#d9822b","神経":"#7a55c0","筋骨格・整形":"#7d8b3a","腎・泌尿器":"#2f8f83","感染症":"#c4478a","精神・心理":"#5c6bc0","皮膚":"#c97b63","小児":"#e0a100","産婦人科":"#d4568f","看護ケア":"#2e9b5b","救急・外傷":"#c0392b","その他":"#78909c"};
 var PAGE=60;
-var st={cat:"",lang:"",rec:"",set:"",src:"",body:"",ref:"",q:"",shown:PAGE};
+var CHK=/[?&]check=1(&|$)/.test(location.search);
+var RD=window.ReviewDone;
+var st={cat:"",lang:"",rec:"",set:"",src:"",body:"",ref:CHK?"1":"",q:"",shown:PAGE};
 var $=function(i){return document.getElementById(i)};
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 function langOf(c){return c.lang_original==="ja"?"ja":(c.translated?"tr":"en")}
@@ -29,6 +31,7 @@ function filtered(skip){
     if(st.set&&c.setting!==st.set)return false;
     if(st.src&&(c.source||{}).name!==st.src)return false;
     if(st.ref&&!c.refined)return false;
+    if(CHK&&langOf(c)==="en")return false;
     if(st.body){var l=isLink(c);if(st.body==="full"&&l)return false;if(st.body==="link"&&!l)return false}
     for(var i=0;i<q.length;i++)if(c._s.indexOf(q[i])<0)return false;
     return true;
@@ -64,7 +67,8 @@ function card(c,i){
   if(c.record_type)b+='<span class="b">'+esc(c.record_type)+'</span>';
   var n=(c.dialogue||[]).length;
   if(c.refined){var jc=judgedCount(c);if(jc)b+='<span class="b jdn">判定済み '+jc+'/'+c.soap_items.length+'</span>'}
-  return '<div class="card" data-i="'+i+'" data-id="'+esc(c.id)+'"><div class="badges">'+b+'</div><h2>'+esc(c.title)+'</h2><div class="tags">'+(c.tags||[]).map(function(t){return'<span>'+esc(t)+'</span>'}).join("")+'</div><div class="meta">'+esc((c.source||{}).name||"")+(n?' ・ 発話 '+n:'')+'</div></div>';
+  var rb=RD?RD.badge("soap/"+c.id):"";
+  return '<div class="card" data-i="'+i+'" data-id="'+esc(c.id)+'"><div class="badges">'+b+'</div><h2>'+esc(c.title)+'</h2><div class="tags">'+(c.tags||[]).map(function(t){return'<span>'+esc(t)+'</span>'}).join("")+'</div><div class="meta">'+esc((c.source||{}).name||"")+(n?' ・ 発話 '+n:'')+'</div>'+(rb?'<div class="rdrow">'+rb+'</div>':'')+'</div>';
 }
 var cur=[];
 function renderList(){
@@ -78,7 +82,7 @@ function renderList(){
 function refresh(){st.shown=PAGE;renderSide();renderList()}
 
 // ===== 判定アンケート（localStorage 接頭辞 soapq:）・自動送信 =====
-var QP="soapq:",judgeOn=false,curCase=null;
+var QP="soapq:",judgeOn=CHK,curCase=null;
 var SYN=window.SYNC||{url:"",key:""};
 function now(){return new Date().toISOString()}
 var qs={
@@ -96,7 +100,7 @@ function askName(cb){
   o.querySelector(".ok").onclick=function(){done(true)};o.querySelector(".ng").onclick=function(){done(false)};
   inp.onkeydown=function(e){if(e.key==="Enter")done(true)};
 }
-function showName(){var b=$("nameBtn");if(!b)return;b.hidden=!judgeOn;b.textContent="お名前："+(qName()||"未入力")+"（変更）"}
+function showName(){try{if(qName())localStorage.setItem("review_name",qName())}catch(_){}var b=$("nameBtn");if(!b)return;b.hidden=!judgeOn;b.textContent="お名前："+(qName()||"未入力")+"（変更）"}
 var sync={
   timer:null,busy:false,err:false,
   on:function(){return /^https:/.test(SYN.url||"")&&!!SYN.key},
@@ -148,7 +152,18 @@ function judgeHtml(c,it){
 }
 function caseBoxHtml(c){
   var r=qs.get(c.id+"/case")||{};
-  return '<div class="jcase"><h3>この事例へのご意見（自由記述）</h3><textarea class="jcc" rows="3" maxlength="1000" placeholder="気づいたこと，ご意見など">'+esc(r.comment||"")+'</textarea><div class="jcb"><button class="jsend">送信</button><span class="jmsg">'+(r.sent?'送信しました':'')+'</span>'+(judgeOn&&c.refined?'<button class="jdone'+(r.done?' on':'')+'">'+(r.done?'判定を完了済み（取り消す）':'この事例の判定を完了')+'</button>':'')+'</div></div>';
+  return '<div class="jcase"><h3>この事例へのご意見（自由記述）</h3><textarea class="jcc" rows="3" maxlength="1000" placeholder="気づいたこと，ご意見など">'+esc(r.comment||"")+'</textarea><div class="jcb"><button class="jsend">送信</button><span class="jmsg">'+(r.sent?'送信しました':'')+'</span>'+(judgeOn&&c.refined&&!RD?'<button class="jdone'+(r.done?' on':'')+'">'+(r.done?'判定を完了済み（取り消す）':'この事例の判定を完了')+'</button>':'')+'</div></div>';
+}
+function doneKey(c){return "soap/"+c.id}
+function doneHtml(c){
+  if(!RD||!judgeOn||!c.refined)return "";
+  var k=doneKey(c),nm=RD.names(k),me=qName(),mine=!!me&&nm.indexOf(me)>=0;
+  return '<div class="jdw"><button class="rdbtn'+(mine?' on':'')+'">'+(mine?'確認完了済み（取り消す）':'この事例の確認を完了する')+'</button>'+(nm.length?'<div class="rdwho">確認済み：'+nm.map(function(x){return esc(x)+'様'}).join("・")+'</div>':'')+'</div>';
+}
+function refreshDone(){
+  if(!curCase||$("detail").hidden)return;
+  var w=$("detail").querySelector(".jdw");if(!w)return;
+  var t=document.createElement("div");t.innerHTML=doneHtml(curCase);if(t.firstChild)w.outerHTML=t.innerHTML;
 }
 function caseSend(c,box,done){
   var ta=box.querySelector(".jcc"),k=c.id+"/case",r=qs.get(k)||{};
@@ -209,7 +224,7 @@ function openCase(c){
     if(hasOrig){h+='<div class="bar"><div class="seg" id="modeSeg"><button data-m="ja">日本語訳</button><button data-m="en">英語原文</button><button data-m="both">並べて表示</button></div><span class="mt">日本語訳は機械翻訳（Claude 訳）です．正確な内容は英語原文をご確認ください．</span></div>'}
     h+='<div class="tabs seg" id="tabSeg"><button data-t="d" class="on">対話</button><button data-t="s">SOAP</button></div><div id="body"></div>';
   }
-  h+=caseBoxHtml(c);
+  h+=caseBoxHtml(c)+doneHtml(c);
   h+='<div class="foot"><div>出典：'+(s.url?'<a href="'+esc(s.url)+'" target="_blank" rel="noopener">'+esc(s.name)+'</a>':esc(s.name||""))+(s.item_url&&!isLink(c)?' ・ <a href="'+esc(s.item_url)+'" target="_blank" rel="noopener">元データ</a>':'')+'</div><div>ライセンス：'+esc(s.license||"未記載")+'</div>'+(s.citation?'<div>引用：'+esc(s.citation)+'</div>':'')+(c.notes?'<div>備考：'+esc(c.notes)+'</div>':'')+(c.refined?reviewHtml(c):'')+(c.note_original_raw?'<details><summary>元のノート（原文のまま）</summary><pre>'+esc(c.note_original_raw)+'</pre></details>':'')+'</div></div></div>';
   var d=$("detail");d.innerHTML=h;d.hidden=false;document.body.style.overflow="hidden";
   $("closeD").onclick=function(){closeCase(true)};
@@ -288,6 +303,10 @@ function openCase(c){
   }
   var pb=d.querySelector(".pb");
   pb.addEventListener("click",function(e){
+    if(e.target.classList.contains("rdbtn")){
+      askName(function(){var k=doneKey(c),me=qName(),mine=RD.names(k).indexOf(me)>=0;RD.mark(k,c.id+" "+c.title,me,!mine);refreshDone()});
+      return;
+    }
     var box=e.target.closest(".jcase");if(!box)return;
     if(e.target.classList.contains("jsend"))askName(function(){caseSend(c,box)});
     else if(e.target.classList.contains("jdone")){var r=qs.get(c.id+"/case")||{};askName(function(){caseSend(c,box,r.done?"undo":"done")})}
@@ -308,15 +327,19 @@ function closeCase(push){
 }
 function route(){
   var m=location.hash.match(/^#c\/(.+)$/);
-  if(m){var id=decodeURIComponent(m[1]);var c=ALL.filter(function(x){return x.id===id})[0];if(c){openCase(c);opened=true;return}}
+  if(m){var id=decodeURIComponent(m[1]);var c=ALL.filter(function(x){return x.id===id})[0];if(c){
+    function go(){openCase(c);opened=true}
+    if(RD&&(curCase==null||curCase.id!==c.id))RD.guard(doneKey(c),qName(),go,function(){history.replaceState(null,"",location.pathname+location.search);if(!$("detail").hidden)closeCase(false)});
+    else go();
+    return}}
   if(!$("detail").hidden)closeCase(false);
 }
 // イベント
 $("list").onclick=function(e){var el=e.target.closest(".card");if(!el)return;location.hash="c/"+encodeURIComponent(el.getAttribute("data-id"))};
 $("more").onclick=function(){st.shown+=PAGE;renderList()};
-function onFilter(e){var b=e.target.closest("button[data-k]");if(!b)return;var k=b.getAttribute("data-k"),v=b.getAttribute("data-v");st[k]=(k!=="cat"&&st[k]===v)?"":v;refresh();if(window.innerWidth<=900&&k==="cat")$("side").classList.remove("open")}
+function onFilter(e){var b=e.target.closest("button[data-k]");if(!b)return;var k=b.getAttribute("data-k"),v=b.getAttribute("data-v");if(CHK&&k==="ref")return;st[k]=(k!=="cat"&&st[k]===v)?"":v;refresh();if(window.innerWidth<=900&&k==="cat")$("side").classList.remove("open")}
 $("cats").onclick=onFilter;$("filters").onclick=onFilter;
-$("reset").onclick=function(){st={cat:"",lang:"",rec:"",set:"",src:"",body:"",ref:"",q:"",shown:PAGE};$("q").value="";refresh()};
+$("reset").onclick=function(){st={cat:"",lang:"",rec:"",set:"",src:"",body:"",ref:CHK?"1":"",q:"",shown:PAGE};$("q").value="";refresh()};
 var tm;$("q").oninput=function(){clearTimeout(tm);tm=setTimeout(function(){st.q=$("q").value;refresh()},200)};
 $("menuBtn").onclick=function(){$("side").classList.toggle("open")};
 document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!$("detail").hidden)closeCase(true)});
@@ -327,6 +350,12 @@ $("judgeBtn").onclick=function(){
   showName();sync.show();if(curCase&&!$("detail").hidden){var c=curCase,top=$("detail").querySelector(".pb").scrollTop;openCase(c);$("detail").querySelector(".pb").scrollTop=top}
 };
 $("nameBtn").onclick=function(){var o=qName();qs.del("_name");askName(function(){});if(!qName()&&o)qs.set("_name",o);showName()};
+try{if(!qName()){var rn0=localStorage.getItem("review_name");if(rn0)qs.set("_name",rn0)}}catch(_){}
+if(CHK){
+  var jb0=$("judgeBtn");jb0.classList.add("on");jb0.textContent="判定モード：ON";jb0.hidden=true;
+  var cn=$("chkNote");if(cn){cn.textContent="各項目が S／O／A／P のどれに当たるか，対話に根拠があるかを見てください．最後に『確認を完了する』を押してください．入力は自動で送信されます．";cn.hidden=false}
+}
+if(RD)RD.init({url:SYN.url||"",key:SYN.key||"",onChange:function(){renderList();refreshDone()}});
 showName();sync.show();sync.flush();
 $("total").textContent="全 "+ALL.length+" 件";
 refresh();route();
