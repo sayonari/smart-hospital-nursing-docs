@@ -36,6 +36,7 @@ h1{font-size:22px;margin:0 0 4px}
 .prog{font-size:13px;color:#17663a;margin-left:auto;font-weight:600}
 .three{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
 .three .btn{padding:12px 6px}
+.btn.more{display:flex;flex-direction:column;width:100%;margin-top:14px;background:#15803d;box-shadow:0 3px 0 #14532d,0 4px 10px rgba(21,128,61,.25);gap:0}.btn.more:hover,.btn.more:focus{background:#14532d}.btn.more small{font-size:12.5px;font-weight:500;opacity:.92}
 .opt{margin-top:10px;text-align:right}
 .opt a{color:var(--go);font-weight:700;font-size:14.5px}
 .note{background:#fff8e6;border:1px solid #ecd28c;border-radius:12px;padding:10px 14px;font-size:14px;margin-top:18px}
@@ -67,7 +68,7 @@ h1{font-size:22px;margin:0 0 4px}
 <p class="what">褥瘡・転倒・せん妄の標準看護計画．<b>中身が現場に合っているか</b>を見てください．</p>
 <p class="meta">直したい行に「修正案」か「不要」．3 つとも見ていただけると助かります．</p>
 <div class="three"><a class="btn" href="app/#p/pressure_injury">▶ 褥瘡</a><a class="btn" href="app/#p/fall_risk">▶ 転倒</a><a class="btn" href="app/#p/delirium_risk">▶ せん妄</a></div>
-<p class="opt"><a href="app/#dash">余裕があれば，ほかの計画もどれでも →</a></p>
+<a class="btn more" href="app/#dash">▶ ほかの看護計画もすべて見る<small>余裕があれば，どれでも</small></a>
 </div></div>
 
 <div class="card">
@@ -82,7 +83,7 @@ h1{font-size:22px;margin:0 0 4px}
 </table>
 <p class="pri2h">外来（看護計画立案後・会話＋看護記録）</p>
 <div class="pri pri2"><a class="btn pc" data-id="S-fluid_overload-03" href="nurse/?check=1&amp;set=pri#S-fluid_overload-03">▶ 心不全外来<span class="dn"></span></a><a class="btn pc" data-id="S-bleeding_risk-03" href="nurse/?check=1&amp;set=pri#S-bleeding_risk-03">▶ 抗凝固薬外来<span class="dn"></span></a></div>
-<p class="opt"><a href="nurse/?check=1">余裕があれば，ほかの事例もどれでも（全 150 件）→</a></p>
+<a class="btn more" href="nurse/?check=1">▶ 全 150 件の会話を見る<small>8 件のほかも，余裕があればどれでも</small></a>
 </div></div>
 
 <div class="note">
