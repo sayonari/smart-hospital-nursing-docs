@@ -225,6 +225,8 @@ function doneBoxHtml(c){
 function onDoneClick(e){
   var b=e.target.closest(".jdbtn");if(!b||!curCase||!RD)return;
   var c=curCase,d=b.dataset.d==="1";
+  var cb=$("detail").querySelector(".jcase");
+  if(d&&cb&&cb.querySelector(".jcc").value.trim()!==((qs.get(c.id+"/case")||{}).c||""))sendCase(c,cb);
   askName(function(){
     RD.mark(dkey(c),entityOf(c),qName(),d);
     var box=$("detail").querySelector(".jdone");if(box)box.outerHTML=doneBoxHtml(c);
@@ -232,7 +234,11 @@ function onDoneClick(e){
 }
 function onCaseSend(e){
   if(!e.target.closest(".jsend")||!curCase)return;
-  var c=curCase,box=e.target.closest(".jcase"),txt=box.querySelector(".jcc").value.trim(),path=c.id+"/case";
+  sendCase(curCase,e.target.closest(".jcase"));
+}
+// ご意見欄を送る（「送信」ボタンと，未送信のまま「チェック完了」を押したとき）
+function sendCase(c,box){
+  var txt=box.querySelector(".jcc").value.trim(),path=c.id+"/case";
   askName(function(){
     if(txt)qs.set(path,{c:txt});else qs.del(path);
     sync.push({path:"ndlg/"+path,entity:entityOf(c),label:"事例全体のご意見",text:"",status:txt?"意見":"clear",proposal:"",comment:txt,reviewer:qName(),ts:now()});
@@ -409,6 +415,8 @@ showNote();if(CHECK)setJudge(true);
 $("nameBtn").onclick=function(){qs.del("_name");askName(function(){})};
 showName();sync.show();sync.flush();refresh();
 function openHash(){var id=decodeURIComponent((location.hash||"").slice(1));if(!id)return;var c=ALL.filter(function(x){return x.id===id})[0];if(!c)return;
-  if(RD)RD.guard(dkey(c),qName(),function(){openCase(c)},function(){});else openCase(c)}
+  if(!RD){openCase(c);return}
+  // 確認済み一覧が届いてから確かめる（最大 4 秒待つ）
+  var t0=Date.now();(function w(){if(RD.loaded()||Date.now()-t0>4000)RD.guard(dkey(c),qName(),function(){openCase(c)},function(){});else setTimeout(w,150)})();}
 openHash();window.addEventListener("hashchange",openHash);
 })();
