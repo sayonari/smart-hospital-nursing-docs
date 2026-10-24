@@ -168,3 +168,8 @@ details.aud .player{position:static;border:0;margin:0}
 .pb.split .pc{background:#fbfdff}
 .b.phs{background:#fff;color:#0b5d57;border:1px solid #7cc4b8}
 .b.plc{background:#fff;color:#44596a;border:1px solid #c5ccd6}
+.ib.ev{cursor:pointer;border:1px solid #9cc3ec;text-decoration:underline;text-underline-offset:2px}
+.ib.ev:hover{background:#b9d8f7}
+.msg.now{animation:nowflash 1.6s ease-out}
+@keyframes nowflash{0%{background:#ffe08a}100%{background:transparent}}
+.b.pri{background:#fde68a;color:#7c2d12;font-weight:700}

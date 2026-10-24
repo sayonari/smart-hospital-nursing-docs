@@ -25,8 +25,9 @@ function phaseB(c){var v=phaseOf(c);return '<span class="b phs" title="'+esc(PHD
 function riskOf(c){return c.judgement&&c.judgement.risk_level||""}
 
 // ===== 絞り込みと一覧 =====
-var st={type:"",phase:"",place:"",problem:"",scene:"",risk:"",miss:"",rev:"",q:"",shown:PAGE};
+var st={pri:"",type:"",phase:"",place:"",problem:"",scene:"",risk:"",miss:"",rev:"",q:"",shown:PAGE};
 var GROUPS=[
+  ["pri","優先",function(c){return CHECK&&isPri(c)?"まず見てほしい事例":""},null],
   ["type","種別",function(c){return c.type},function(v){return TYPEL[v]||v}],
   ["phase","看護計画の時期",function(c){return phaseOf(c)},null],
   ["place","外来／入院",function(c){return placeOf(c)},null],
@@ -62,7 +63,7 @@ function renderSide(){
   $("filters").innerHTML=h;
 }
 function cardHtml(c){
-  var b='<span class="b '+c.type+'">'+(TYPEL[c.type]||c.type)+'</span>'+phaseB(c);
+  var b=(CHECK&&isPri(c)?'<span class="b pri">★ まず見てほしい</span>':'')+'<span class="b '+c.type+'">'+(TYPEL[c.type]||c.type)+'</span>'+phaseB(c);
   if(c.problem)b+='<span class="b">'+esc(c.problem)+'</span>';
   if(riskOf(c))b+='<span class="b '+RCL[riskOf(c)]+'">リスク'+RISK[riskOf(c)]+'</span>';
   if(c.type==="assess")b+=missCount(c)?'<span class="b miss">聞き忘れ '+missCount(c)+'</span>':'<span class="b nomiss">聞き忘れなし</span>';
@@ -99,10 +100,14 @@ function qName(){return qs.get("_name")||""}
 function setName(v){qs.set("_name",v);try{localStorage.setItem("review_name",v)}catch(_){}}
 if(!qName()&&lsName())qs.set("_name",lsName());
 var CHECK=/[?&]check=1(&|$)/.test(location.search);
+// まず見ていただきたい事例（褥瘡・転倒・せん妄 × 立案前／立案後，外来 2 件）．ポータルの一覧と同じ並び
+var PRI=["A-pressure-01","S-pressure_injury-01","A-fall-01","S-fall_risk-01","A-delirium-01","S-delirium_risk-03","S-fluid_overload-03","S-bleeding_risk-03"];
+function isPri(c){return PRI.indexOf(c.id)>=0}
 // 確認モードでは看護 SOAP 付きの対話を先に並べる（情報収集は余裕があれば）．?type=assess|soap で種別を絞る
-if(CHECK)ALL.sort(function(a,b){return (a.type==="soap"?0:1)-(b.type==="soap"?0:1)});
+if(CHECK)ALL.sort(function(a,b){var pa=PRI.indexOf(a.id),pb=PRI.indexOf(b.id);if(pa>=0||pb>=0)return (pa<0?99:pa)-(pb<0?99:pb);return (a.type==="soap"?0:1)-(b.type==="soap"?0:1)});
 var TQ=(location.search.match(/[?&]type=(soap|assess)(&|$)/)||[])[1]||"";
 if(TQ)st.type=TQ;
+if(CHECK&&/[?&]set=pri(&|$)/.test(location.search))st.pri="まず見てほしい事例";
 function dkey(c){return "ndlg/"+c.id}
 function doneNames(c){return RD?RD.names(dkey(c)):[]}
 function askName(cb){
@@ -258,7 +263,7 @@ function dialogueHtml(c){
   return h+'</div>';
 }
 function evBadges(ev){
-  return (ev||[]).map(function(x){return '<span class="ib ev">'+(typeof x==="number"?"発話"+x:"観察 "+esc(x))+'</span>'}).join("");
+  return (ev||[]).map(function(x){return '<span class="ib ev" role="button" data-to="'+esc(String(x))+'" title="押すとこの発話へ移動">'+(typeof x==="number"?"発話"+x:"観察 "+esc(x))+'</span>'}).join("");
 }
 function soapHtml(c){
   var items=(c.soap||{}).items||[],h='<h3>看護記録（SOAP）'+(c.soap&&c.soap.problem_label?'：'+esc(c.soap.problem_label):'')+'</h3><div class="soap">';
@@ -322,11 +327,11 @@ function openCase(c){
   d.innerHTML=h;d.hidden=false;document.body.style.overflow="hidden";
   setupAudio(c);
 }
-function closeCase(){var a=$("au");if(a)a.pause();$("detail").hidden=true;$("detail").innerHTML="";document.body.style.overflow="";curCase=null}
+function closeCase(){var a=$("au");if(a)a.pause();$("detail").hidden=true;$("detail").innerHTML="";document.body.style.overflow="";curCase=null;if(location.hash)try{history.replaceState(null,"",location.pathname+location.search)}catch(_){}}
 
 // 根拠ハイライト
 function clearHl(){[].forEach.call($("detail").querySelectorAll(".hl,.sel"),function(x){x.classList.remove("hl","sel")})}
-function hlEvidence(el){
+function hlEvidence(el,to){
   clearHl();el.classList.add("sel");
   var ev=[];try{ev=JSON.parse(el.dataset.ev)}catch(_){}
   var first=null;
@@ -334,6 +339,8 @@ function hlEvidence(el){
     var t=typeof x==="number"?$("detail").querySelector('.msg[data-turn="'+x+'"]'):$("detail").querySelector('.obs[data-obs="'+x+'"]');
     if(t){t.classList.add("hl");if(!first)first=t}
   });
+  // 押したタグ（発話21 など）があればその発話へ，無ければ最初の根拠へ
+  if(to!=null){var tg=/^\d+$/.test(to)?$("detail").querySelector('.msg[data-turn="'+to+'"]'):$("detail").querySelector('.obs[data-obs="'+to+'"]');if(tg){first=tg;tg.classList.add("hl","now");setTimeout(function(){tg.classList.remove("now")},1600)}}
   if(first)first.scrollIntoView({block:"center",behavior:"smooth"});
 }
 
@@ -380,7 +387,7 @@ $("detail").addEventListener("click",function(e){
   if(e.target.closest(".jd")){onJudgeClick(e);return}
   if(e.target.closest(".jdone")){onDoneClick(e);return}
   if(e.target.closest(".jcase")){onCaseSend(e);return}
-  var el=e.target.closest(".it,.cr");if(el)hlEvidence(el);
+  var el=e.target.closest(".it,.cr");if(el){var ch=e.target.closest(".ib.ev");hlEvidence(el,ch?ch.dataset.to:null)}
 });
 $("detail").addEventListener("change",onJudgeChange);
 document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!$("detail").hidden&&!document.querySelector(".nmodal"))closeCase()});
@@ -401,4 +408,7 @@ if(RD)RD.init({url:SYN.url||"",key:SYN.key||"",onChange:function(){renderList();
 showNote();if(CHECK)setJudge(true);
 $("nameBtn").onclick=function(){qs.del("_name");askName(function(){})};
 showName();sync.show();sync.flush();refresh();
+function openHash(){var id=decodeURIComponent((location.hash||"").slice(1));if(!id)return;var c=ALL.filter(function(x){return x.id===id})[0];if(!c)return;
+  if(RD)RD.guard(dkey(c),qName(),function(){openCase(c)},function(){});else openCase(c)}
+openHash();window.addEventListener("hashchange",openHash);
 })();

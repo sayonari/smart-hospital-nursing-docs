@@ -39,6 +39,7 @@ h1{font-size:22px;margin:0 0 4px}
 .opt{margin-top:10px;text-align:right}
 .opt a{color:var(--go);font-weight:700;font-size:14.5px}
 .note{background:#fff8e6;border:1px solid #ecd28c;border-radius:12px;padding:10px 14px;font-size:14px;margin-top:18px}
+.pri{width:100%;border-collapse:separate;border-spacing:6px;margin:8px -6px 0}.pri th{font-size:13.5px;color:var(--ac-d);text-align:center;font-weight:700;line-height:1.35}.pri th small{font-weight:500;color:var(--sub)}.pri tr>th:first-child{width:3.6em;text-align:left;font-size:15px}.pri .btn{display:flex;width:100%;padding:10px 4px;font-size:15px;min-height:46px;flex-direction:column;gap:0}.pri .btn .dn{font-size:12px;font-weight:600}.pri .btn.done{background:#e7f6ec;color:#17663a;box-shadow:0 0 0 2px #9fd8b2 inset}
 .foot{color:var(--sub);font-size:12.5px;margin-top:26px}
 .foot a{color:var(--sub)}
 </style>
@@ -69,14 +70,18 @@ h1{font-size:22px;margin:0 0 4px}
 </div></div>
 
 <div class="card">
-<div class="hd"><span class="no">2</span><h2>看護の模擬対話と看護記録</h2><span class="tag">できるだけ多く</span><span class="prog" data-p="ndlg/"></span></div>
+<div class="hd"><span class="no">2</span><h2>看護の会話と看護記録</h2><span class="tag">この 8 件を優先（手分けして）</span><span class="prog" data-p="ndlg/"></span></div>
 <div class="bd">
-<p class="what">看護師と患者の会話と，その看護記録（SOAP）．<b>実際の看護でありそうな会話か，記録の中身と S／O／A／P の欄が合っているか</b>を見てください．</p>
-<p class="meta">確認済みの例は，アプリの評価と改良の土台になります．2〜3 件でも助かりますが，できるだけ多く見ていただけるとありがたいです（全 90 件）．患者はすべて架空です．</p>
-<p class="meta">「会話＋看護記録」の 90 件は<b>看護計画立案後</b>の場面です（入院中 79 件・外来 11 件．入院時の 4 件だけ立案時）．「情報収集の会話」の 60 件は<b>看護計画立案前</b>の聞き取りです．</p>
-<p class="meta">この場面で実際のカルテに書くこと・書かないこと，書き方のコツがあれば，各事例の「ご意見」欄に書いていただけると助かります．</p>
-<a class="btn wide" href="nurse/?check=1&amp;type=soap">▶ 会話＋看護記録（SOAP）を開く</a>
-<p class="opt"><a href="nurse/?check=1&amp;type=assess">余裕があれば，情報収集の会話（記録なし・60 件）も →</a></p>
+<p class="what">看護師と患者の会話（架空）です．<b>実際の看護でありそうな会話か，看護記録（SOAP）の中身と欄が合っているか</b>を見てください．</p>
+<p class="meta">1 件 5 分ほど．<b>「✓ 済」が付いていないもの</b>を選んでください．カルテに書くこと・書かないことのコツも，ご意見欄に書いていただけると助かります．</p>
+<table class="pri"><tr><th></th><th>看護計画立案前<br><small>入院時の聞き取り</small></th><th>看護計画立案後<br><small>会話＋看護記録</small></th></tr>
+<tr><th>褥瘡</th><td><a class="btn pc" data-id="A-pressure-01" href="nurse/?check=1&amp;set=pri#A-pressure-01">▶ 開く<span class="dn"></span></a></td><td><a class="btn pc" data-id="S-pressure_injury-01" href="nurse/?check=1&amp;set=pri#S-pressure_injury-01">▶ 開く<span class="dn"></span></a></td></tr>
+<tr><th>転倒</th><td><a class="btn pc" data-id="A-fall-01" href="nurse/?check=1&amp;set=pri#A-fall-01">▶ 開く<span class="dn"></span></a></td><td><a class="btn pc" data-id="S-fall_risk-01" href="nurse/?check=1&amp;set=pri#S-fall_risk-01">▶ 開く<span class="dn"></span></a></td></tr>
+<tr><th>せん妄</th><td><a class="btn pc" data-id="A-delirium-01" href="nurse/?check=1&amp;set=pri#A-delirium-01">▶ 開く<span class="dn"></span></a></td><td><a class="btn pc" data-id="S-delirium_risk-03" href="nurse/?check=1&amp;set=pri#S-delirium_risk-03">▶ 開く<span class="dn"></span></a></td></tr>
+<tr><th>外来</th><td><a class="btn pc" data-id="S-fluid_overload-03" href="nurse/?check=1&amp;set=pri#S-fluid_overload-03">▶ 心不全外来<span class="dn"></span></a></td><td><a class="btn pc" data-id="S-bleeding_risk-03" href="nurse/?check=1&amp;set=pri#S-bleeding_risk-03">▶ 抗凝固薬外来<span class="dn"></span></a></td></tr>
+</table>
+<p class="meta" style="margin-top:6px">外来の 2 件は，どちらも看護計画立案後の会話＋看護記録です．</p>
+<p class="opt"><a href="nurse/?check=1">余裕があれば，ほかの事例もどれでも（全 150 件）→</a></p>
 </div></div>
 
 <div class="note">
@@ -98,7 +103,8 @@ h1{font-size:22px;margin:0 0 4px}
   $("nm").onkeydown=function(e){if(e.key==="Enter")$("nmSave").click()};
   show();
   if(window.ReviewDone){
-    var draw=function(){[].forEach.call(document.querySelectorAll(".prog"),function(el){var n=ReviewDone.count(el.getAttribute("data-p"));el.textContent=n?"✓ 確認済み "+n+" 件":""})};
+    var draw=function(){[].forEach.call(document.querySelectorAll(".prog"),function(el){var n=ReviewDone.count(el.getAttribute("data-p"));el.textContent=n?"✓ 確認済み "+n+" 件":""});
+      [].forEach.call(document.querySelectorAll(".pri .btn"),function(b){var nm=ReviewDone.names("ndlg/"+b.getAttribute("data-id"));b.classList.toggle("done",nm.length>0);b.querySelector(".dn").textContent=nm.length?"✓ 済（"+nm.join("・")+"様）":""})};
     ReviewDone.init({url:"https://script.google.com/macros/s/AKfycbx5TthoOKaDySGnJ3XKng6_qi1u8QF-fASOVab-wXqc_jBx_T-nz7FmRv5_W47RegvUYQ/exec",key:"W2HBFnzynhyQ",onChange:draw});
   }
 })();
