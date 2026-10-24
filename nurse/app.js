@@ -91,6 +91,10 @@ function qName(){return qs.get("_name")||""}
 function setName(v){qs.set("_name",v);try{localStorage.setItem("review_name",v)}catch(_){}}
 if(!qName()&&lsName())qs.set("_name",lsName());
 var CHECK=/[?&]check=1(&|$)/.test(location.search);
+// 確認モードでは看護 SOAP 付きの対話を先に並べる（情報収集は余裕があれば）．?type=assess|soap で種別を絞る
+if(CHECK)ALL.sort(function(a,b){return (a.type==="soap"?0:1)-(b.type==="soap"?0:1)});
+var TQ=(location.search.match(/[?&]type=(soap|assess)(&|$)/)||[])[1]||"";
+if(TQ)st.type=TQ;
 function dkey(c){return "ndlg/"+c.id}
 function doneNames(c){return RD?RD.names(dkey(c)):[]}
 function askName(cb){
@@ -382,7 +386,7 @@ function setJudge(on){
   judgeOn=on;var b=$("judgeBtn");b.classList.toggle("on",on);b.textContent="確認モード："+(on?"ON":"OFF");
 }
 function showNote(){
-  $("chkNote").innerHTML=CHECK?'<b>実際の看護の場面でありそうな会話かを見てください．</b>違和感があれば，その発話や項目に修正案を書いてください．問題なければ何も書かなくて OK です．最後に『チェック完了』を押してください．音声はおまけなので聞かなくて大丈夫です．'
+  $("chkNote").innerHTML=CHECK?'<b>実際の看護の場面でありそうな会話か，看護記録（SOAP）の中身と欄が合っているかを見てください．</b>違和感があれば，その発話や項目に修正案を書いてください．問題なければ何も書かなくて OK です．最後に『チェック完了』を押してください．音声はおまけなので聞かなくて大丈夫です．'
     :'合成音声が付いている対話もありますが，おまけです（聞かなくてかまいません）．';
 }
 if(RD)RD.init({url:SYN.url||"",key:SYN.key||"",onChange:function(){renderList();if(curCase&&!$("detail").hidden){var box=$("detail").querySelector(".jdone");if(box)box.outerHTML=doneBoxHtml(curCase)}}});
