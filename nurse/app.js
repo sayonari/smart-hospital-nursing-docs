@@ -8,7 +8,7 @@ var STL={positive:"該当",negative:"非該当",unclear:"あいまい",not_asked
 var MODEL={talk:"聞き取り",obs:"観察",both:"両方"};
 var RISK={high:"高",moderate:"中",low:"低"};
 var RCL={high:"hi",moderate:"mo",low:"lo"};
-var TYPEL={soap:"SOAP",assess:"情報収集"};
+var TYPEL={soap:"会話＋看護記録（SOAP）",assess:"情報収集の会話（記録なし）"};
 
 function roleOf(c,id){var s=(c.speakers||[]).filter(function(x){return x.id===id})[0];return s?s.role:""}
 function roleCls(r){return r==="看護師"?"nurse":r==="患者"?"patient":r==="家族"?"family":"other"}
@@ -18,16 +18,18 @@ function checkMode(pid,id){var o=CI[pid];if(!o)return "";var r=o.items.filter(fu
 function missCount(c){return (c.checklist||[]).filter(function(x){return x.status==="not_asked"}).length}
 // 看護計画を立てる前か後か．情報収集＝立案前（立てるかを判断する），SOAP＝立案後（計画の継続・追加・変更）．入院時の SOAP は初めて計画を立てる場面
 var FIRST=/入院時|直後|入室時|初回|入院当日/;
-function phaseOf(c){return c.type==="assess"?"立案前":FIRST.test(c.scene||"")?"立案時（入院時）":"立案後"}
-var PHD={"立案前":"看護計画を立てるか判断するための聞き取り（記録は無し）","立案時（入院時）":"入院時に初めて計画を立てる場面．A／P は計画を立てるための評価と案","立案後":"計画が既にある場面．A／P は目標に向けた評価と，計画の続行・追加・変更"};
-function phaseB(c){var v=phaseOf(c);return '<span class="b phs" title="'+esc(PHD[v])+'">'+v+'</span>'}
+function phaseOf(c){return c.type==="assess"?"看護計画立案前":FIRST.test(c.scene||"")?"看護計画立案時（入院時）":"看護計画立案後"}
+function placeOf(c){return /外来/.test(c.setting||"")?"外来":"入院中"}
+var PHD={"看護計画立案前":"看護計画を立てるか判断するための聞き取り（記録は無し）","看護計画立案時（入院時）":"入院時に初めて計画を立てる場面．A／P は計画を立てるための評価と案","看護計画立案後":"計画が既にある場面．A／P は目標に向けた評価と，計画の続行・追加・変更"};
+function phaseB(c){var v=phaseOf(c);return '<span class="b phs" title="'+esc(PHD[v])+'">'+v+'</span><span class="b plc">'+placeOf(c)+'</span>'}
 function riskOf(c){return c.judgement&&c.judgement.risk_level||""}
 
 // ===== 絞り込みと一覧 =====
-var st={type:"",phase:"",problem:"",scene:"",risk:"",miss:"",rev:"",q:"",shown:PAGE};
+var st={type:"",phase:"",place:"",problem:"",scene:"",risk:"",miss:"",rev:"",q:"",shown:PAGE};
 var GROUPS=[
   ["type","種別",function(c){return c.type},function(v){return TYPEL[v]||v}],
-  ["phase","看護計画",function(c){return phaseOf(c)},null],
+  ["phase","看護計画の時期",function(c){return phaseOf(c)},null],
+  ["place","外来／入院",function(c){return placeOf(c)},null],
   ["problem","看護問題",function(c){return c.problem||c.problem_id||""},null],
   ["scene","場面",function(c){return c.scene||""},null],
   ["risk","リスク度",function(c){return riskOf(c)},function(v){return RISK[v]||v}],
@@ -206,7 +208,7 @@ function onJudgeChange(e){
 }
 function caseBoxHtml(c){
   var r=qs.get(c.id+"/case")||{};
-  var hd=CHECK?"事例全体のご意見（会話の進み方や内容で，現場と違うと感じたところ）":"この事例へのご意見（自由記述）",ph=CHECK?"会話の進み方や内容で，現場と違うと感じたところを書いてください（任意）":"気づいたこと，ご意見など";
+  var hd=CHECK?"事例全体のご意見（現場との違い，カルテの書き方のコツなど）":"この事例へのご意見（自由記述）",ph=CHECK?"現場と違うと感じたところ（会話の進み方・内容）．また，この場面で実際のカルテに書くこと・書かないこと，書き方のコツなどがあれば教えてください（任意）":"気づいたこと，ご意見など";
   return '<div class="jcase"><h3>'+hd+'</h3><textarea class="jcc" rows="3" maxlength="1000" placeholder="'+ph+'">'+esc(r.c||"")+'</textarea><div class="jcb"><button class="jsend">送信</button><span class="jmsg"></span></div></div>'+doneBoxHtml(c);
 }
 function doneBoxHtml(c){
@@ -303,7 +305,7 @@ function openCase(c){
   var d=$("detail"),b=(c.type==="soap"?soapHtml(c):assessHtml(c));
   var badges='<span class="b '+c.type+'">'+(TYPEL[c.type]||c.type)+'</span> '+phaseB(c)+' '+(c.problem?'<span class="b">'+esc(c.problem)+'</span>':'');
   var h='<div class="panel"><div class="ph"><div><h2>'+esc(c.title||c.id)+'</h2><div class="meta">'+badges+' '+esc(c.id)+'</div></div><button class="close" aria-label="閉じる">×</button></div><div class="pb'+(CHECK?' split':'')+'">'+(CHECK?'<div class="bar bar1">▲ 会話</div><div class="pa">':'');
-  h+=personsHtml(c)+'<div class="meta">場面：'+esc([c.scene,c.setting].filter(Boolean).join(" ／ "))+'<br>看護計画：<b>'+phaseOf(c)+'</b>（'+esc(PHD[phaseOf(c)])+'）'+(c.variation&&!CHECK?'<br>variation：'+esc(c.variation):'')+'</div>';
+  h+=personsHtml(c)+'<div class="meta">場面：'+esc([c.scene,c.setting].filter(Boolean).join(" ／ "))+'<br>時期：<b>'+phaseOf(c)+'</b>（'+esc(PHD[phaseOf(c)])+'）'+(c.variation&&!CHECK?'<br>variation：'+esc(c.variation):'')+'</div>';
   if(CHECK)h+='<div class="jnote" style="margin-top:10px">違和感のある発話や項目の下の『修正案』を押して書いてください．問題なければ何も書かなくて OK です．</div>';
   else if(judgeOn)h+='<div class="jnote" style="margin-top:10px">確認モード：各発話・項目の下のボタンで OK／修正案などを選べます．選ぶと自動で送信されます（もう一度押すと取り消し）．</div>';
   var pl=c.audio?'<div class="player"><audio id="au" controls preload="none" src="'+esc(c.audio.src)+'"></audio></div>':'<div class="nopl">音声は準備中</div>';
