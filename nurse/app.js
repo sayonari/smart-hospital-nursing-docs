@@ -20,7 +20,7 @@ function missCount(c){return (c.checklist||[]).filter(function(x){return x.statu
 var FIRST=/入院時|直後|入室時|初回|入院当日/;
 function phaseOf(c){return c.type==="assess"?"立案前":FIRST.test(c.scene||"")?"立案時（入院時）":"立案後"}
 var PHD={"立案前":"看護計画を立てるか判断するための聞き取り（記録は無し）","立案時（入院時）":"入院時に初めて計画を立てる場面．A／P は計画を立てるための評価と案","立案後":"計画が既にある場面．A／P は目標に向けた評価と，計画の続行・追加・変更"};
-function phaseB(c){var v=phaseOf(c);return '<span class="b ph" title="'+esc(PHD[v])+'">'+v+'</span>'}
+function phaseB(c){var v=phaseOf(c);return '<span class="b phs" title="'+esc(PHD[v])+'">'+v+'</span>'}
 function riskOf(c){return c.judgement&&c.judgement.risk_level||""}
 
 // ===== 絞り込みと一覧 =====
