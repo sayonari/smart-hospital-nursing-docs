@@ -94,7 +94,7 @@ h1{font-size:22px;margin:0 0 4px}
 
 <div class="note">
 <b>文を読んで確認してください．</b>一部の対話に付いている合成音声は試しに作ったおまけです．時間がかかるので聞かなくて大丈夫です．<br>
-すでに誰かが確認したものには「✓ 確認済み（○○様）」と出ます．まだのものを選んでいただけると助かります．
+すでに誰かが確認したものには「✓ 確認済み（○名）」と人数が出ます（お名前は出ません）．まだのものを選んでいただけると助かります．
 </div>
 
 <p class="foot">入力内容は西村研のスプレッドシートに保存され，研究の改善にのみ使います．内容は AI が作ったたたき台で，診療上の判断を示すものではありません．<br>
@@ -112,8 +112,8 @@ h1{font-size:22px;margin:0 0 4px}
   show();
   if(window.ReviewDone){
     var draw=function(){[].forEach.call(document.querySelectorAll(".prog"),function(el){var n=ReviewDone.count(el.getAttribute("data-p"));el.textContent=n?"✓ 確認済み "+n+" 件":""});
-      [].forEach.call(document.querySelectorAll(".pri .btn"),function(b){var nm=ReviewDone.names("ndlg/"+b.getAttribute("data-id"));b.classList.toggle("done",nm.length>0);b.querySelector(".dn").textContent=nm.length?"✓ 済（"+nm.join("・")+"様）":""})};
-    ReviewDone.init({url:"https://script.google.com/macros/s/AKfycbx5TthoOKaDySGnJ3XKng6_qi1u8QF-fASOVab-wXqc_jBx_T-nz7FmRv5_W47RegvUYQ/exec",key:"W2HBFnzynhyQ",onChange:draw});
+      [].forEach.call(document.querySelectorAll(".pri .btn"),function(b){var c=ReviewDone.n("ndlg/"+b.getAttribute("data-id"));b.classList.toggle("done",c>0);b.querySelector(".dn").textContent=c?"✓ 済（"+c+" 名）":""})};
+    ReviewDone.init({url:"https://script.google.com/macros/s/AKfycbx5TthoOKaDySGnJ3XKng6_qi1u8QF-fASOVab-wXqc_jBx_T-nz7FmRv5_W47RegvUYQ/exec",key:"W2HBFnzynhyQ",me:get,onChange:draw});
   }
 })();
 </script>

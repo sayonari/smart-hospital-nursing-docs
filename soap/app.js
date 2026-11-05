@@ -157,8 +157,8 @@ function caseBoxHtml(c){
 function doneKey(c){return "soap/"+c.id}
 function doneHtml(c){
   if(!RD||!judgeOn||!c.refined)return "";
-  var k=doneKey(c),nm=RD.names(k),me=qName(),mine=!!me&&nm.indexOf(me)>=0;
-  return '<div class="jdw"><button class="rdbtn'+(mine?' on':'')+'">'+(mine?'チェック完了済み（取り消す）':'チェック完了')+'</button>'+(nm.length?'<div class="rdwho">確認済み：'+nm.map(function(x){return esc(x)+'様'}).join("・")+'</div>':'')+'</div>';
+  var k=doneKey(c),me=qName(),mine=RD.mine(k,me),who=RD.whoText(k,me);
+  return '<div class="jdw"><button class="rdbtn'+(mine?' on':'')+'">'+(mine?'チェック完了済み（取り消す）':'チェック完了')+'</button>'+(who?'<div class="rdwho">'+esc(who)+'</div>':'')+'</div>';
 }
 function refreshDone(){
   if(!curCase||$("detail").hidden)return;
@@ -320,7 +320,7 @@ function openCase(c){
   var pb=d.querySelector(".pb");
   pb.addEventListener("click",function(e){
     if(e.target.classList.contains("rdbtn")){
-      askName(function(){var k=doneKey(c),me=qName(),mine=RD.names(k).indexOf(me)>=0;RD.mark(k,c.id+" "+c.title,me,!mine);refreshDone()});
+      askName(function(){var k=doneKey(c),me=qName(),mine=RD.mine(k,me);RD.mark(k,c.id+" "+c.title,me,!mine);refreshDone()});
       return;
     }
     var box=e.target.closest(".jcase");if(!box)return;
@@ -372,7 +372,7 @@ if(CHK){
   var cn=$("chkNote");if(cn){cn.textContent="おかしな項目だけ『欄が違う』などを押してください．問題なければ何も押さなくて OK です．最後に『チェック完了』を押してください．項目をタップすると，会話の根拠の部分が光ります．";cn.hidden=false}
   var ca=$("chkAsk");if(ca){ca.textContent="できるだけ多く見ていただけると助かります（2〜3 件だけでも大歓迎です）．確認済みのものは後回しに．";ca.hidden=false}
 }
-if(RD)RD.init({url:SYN.url||"",key:SYN.key||"",onChange:function(){renderList();refreshDone()}});
+if(RD)RD.init({url:SYN.url||"",key:SYN.key||"",me:qName,onChange:function(){renderList();refreshDone()}});
 showName();sync.show();sync.flush();
 $("total").textContent="全 "+ALL.length+" 件";
 refresh();route();

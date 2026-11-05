@@ -1,15 +1,20 @@
 /* 確認済み表示の共通部品（看護計画・SOAP 例・模擬対話の 3 ビューアで共用）
- * 事例・計画ごとの「確認完了」を Apps Script（review_sync/Code.gs）へ送り，全員分の一覧を読み戻す．
- *   ReviewDone.init({url, key, onChange})  … 送信先を設定し，一覧を読み込む（読めたら onChange()）
- *   ReviewDone.names(key)                    … その対象を確認した人の名前の配列
- *   ReviewDone.badge(key)                    … 一覧カード用の「✓ 確認済み（○○様）」HTML（未確認なら ""）
- *   ReviewDone.guard(key, me, onGo, onBack)  … 他の人が確認済みなら確かめるポップアップを出す
- *   ReviewDone.mark(key, entity, me, done)   … 確認完了（done=false で取り消し）を送る
+ * 事例・計画ごとの「確認完了」を Apps Script（review_sync/Code.gs）へ送り，人数だけを読み戻す．
+ * 他の方のお名前は画面にもサーバーの応答にも出さない（2026-11-05 病院からの依頼：履歴が全スタッフに見えないように）．
+ *   ReviewDone.init({url, key, onChange, me})  … 送信先を設定し，一覧を読み込む（読めたら onChange()）．me は自分の名前を返す関数
+ *   ReviewDone.n(key)                         … その対象を確認した人数（自分を含む）
+ *   ReviewDone.mine(key, me)                  … 自分が確認済みか
+ *   ReviewDone.others(key, me)                … 自分以外で確認した人数
+ *   ReviewDone.badge(key)                     … 一覧カード用の「✓ 確認済み（○名）」HTML（未確認なら ""）
+ *   ReviewDone.whoText(key, me)               … 詳細画面用の「ほかに ○名の方が確認済みです」（いなければ ""）
+ *   ReviewDone.guard(key, me, onGo, onBack)   … 他の人が確認済みなら確かめるポップアップを出す
+ *   ReviewDone.mark(key, entity, me, done)    … 確認完了（done=false で取り消し）を送る
+ *   ReviewDone.count(prefix)                  … prefix で始まる対象のうち確認済みのものの数
  * key は "plan/<ref>"・"soap/<事例ID>"・"ndlg/<事例ID>" の形．送信時は末尾に "/__done" を付ける．
  * 文言は句読点「，．」で統一する．
  */
 (function () {
-  var S = { url: "", key: "", map: {}, onChange: null, loaded: false };
+  var S = { url: "", key: "", n: {}, mine: {}, me: null, onChange: null, loaded: false, loading: false, meFn: null };
   var LS = "reviewdone:";   // 自分の操作を一覧が届く前でも反映するための控え
 
   function esc(s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); }
@@ -18,41 +23,71 @@
   function device() {
     try { var d = localStorage.getItem("reviewdone_device"); if (!d) { d = Math.random().toString(36).slice(2, 10); localStorage.setItem("reviewdone_device", d); } return d; } catch (_) { return ""; }
   }
+  function curMe() {
+    var v = "";
+    if (S.meFn) try { v = S.meFn() || ""; } catch (_) {}
+    if (!v) try { v = localStorage.getItem("review_name") || ""; } catch (_) {}
+    return String(v).trim();
+  }
   function changed() { if (S.onChange) try { S.onChange(); } catch (e) { console.error(e); } }
 
-  function names(key) {
-    var list = (S.map[key] || []).map(function (x) { return x.name; });
-    var mine = lsGet(key);   // {name, done}
-    if (mine && mine.name) {
-      var i = list.indexOf(mine.name);
-      if (mine.done && i < 0) list.push(mine.name);
-      if (!mine.done && i >= 0) list.splice(i, 1);
-    }
-    return list;
+  // サーバーが返した「自分の確認済み」は，読み込んだ時の名前のものだけ使える
+  function srvMine(key, me) { return S.me === me && !!S.mine[key]; }
+
+  function mine(key, me) {
+    me = me == null ? curMe() : String(me).trim();
+    if (!me) return false;
+    if (S.loaded && S.me !== me && !S.loading) load();   // 名前が変わったら自分の分を読み直す
+    var loc = lsGet(key);
+    if (loc && loc.name === me) return !!loc.done;
+    return srvMine(key, me);
   }
+
+  function n(key) {
+    var c = S.n[key] || 0, loc = lsGet(key);
+    if (loc && loc.name && S.me === loc.name) {   // 送信直後でサーバーにまだ反映されていない自分の操作を足し引きする
+      var sm = !!S.mine[key];
+      if (loc.done && !sm) c++;
+      if (!loc.done && sm) c--;
+    } else if (loc && loc.name && loc.done && !c) c = 1;
+    return Math.max(0, c);
+  }
+
+  function others(key, me) { return Math.max(0, n(key) - (mine(key, me) ? 1 : 0)); }
 
   function load() {
     if (!S.url || !S.key) return;
-    fetch(S.url + (S.url.indexOf("?") < 0 ? "?" : "&") + "a=done&k=" + encodeURIComponent(S.key), { cache: "no-store" })
+    var me = curMe();
+    S.loading = true;
+    fetch(S.url + (S.url.indexOf("?") < 0 ? "?" : "&") + "a=done2&k=" + encodeURIComponent(S.key) + "&me=" + encodeURIComponent(me), { cache: "no-store" })
       .then(function (r) { return r.json(); })
       .then(function (j) {
-        if (!j || !j.ok || !j.done) return;
-        S.map = j.done; S.loaded = true;
+        S.loading = false;
+        if (!j || !j.ok || !j.n) return;
+        S.n = j.n; S.mine = {}; (j.mine || []).forEach(function (k) { S.mine[k] = true; });
+        S.me = me; S.loaded = true;
         // サーバー側に反映済みの控えは消す
-        Object.keys(localStorage).forEach(function (k) {
-          if (k.indexOf(LS) !== 0) return;
-          var key = k.slice(LS.length), mine = lsGet(key), has = (S.map[key] || []).some(function (x) { return mine && x.name === mine.name; });
-          if (mine && mine.done === has) lsSet(key, null);
-        });
+        try {
+          Object.keys(localStorage).forEach(function (k) {
+            if (k.indexOf(LS) !== 0) return;
+            var key = k.slice(LS.length), loc = lsGet(key);
+            if (loc && loc.name === me && !!loc.done === !!S.mine[key]) lsSet(key, null);
+          });
+        } catch (_) {}
         changed();
       })
-      .catch(function (e) { console.warn("確認済み一覧を読めませんでした", e); });
+      .catch(function (e) { S.loading = false; console.warn("確認済み一覧を読めませんでした", e); });
   }
 
   function badge(key) {
-    var n = names(key);
-    if (!n.length) return "";
-    return '<span class="rd-badge" title="確認済み：' + esc(n.join("，")) + '">✓ 確認済み（' + esc(n.map(function (x) { return x + "様"; }).join("・")) + "）</span>";
+    var c = n(key);
+    if (!c) return "";
+    return '<span class="rd-badge" title="確認済み ' + c + ' 名">✓ 確認済み（' + c + " 名）</span>";
+  }
+
+  function whoText(key, me) {
+    var o = others(key, me);
+    return o ? "ほかに " + o + " 名の方が確認済みです" : "";
   }
 
   function modal(html, buttons) {
@@ -70,16 +105,17 @@
     var p = o.querySelector(".rd-pri"); if (p) p.focus();
   }
 
-  // 自分以外が確認済みなら「既に○○様によって確認済みです」と確かめる
+  // 自分以外が確認済みなら「既に○名の方が確認済みです」と確かめる（お名前は出さない）
   function guard(key, me, onGo, onBack) {
-    var others = names(key).filter(function (x) { return x !== me; });
-    if (!others.length) { onGo(); return; }
-    modal('<p class="rd-t">既に <b>' + esc(others.map(function (x) { return x + "様"; }).join("・")) + "</b> によって確認済みです．</p>" +
+    var o = others(key, me);
+    if (!o) { onGo(); return; }
+    modal('<p class="rd-t">既に <b>' + o + " 名の方</b>が確認済みです．</p>" +
       '<p class="rd-s">まだ確認されていないものを優先していただけると助かります．このまま確認してもかまいません．</p>',
       [{ label: "一覧に戻る", fn: onBack }, { label: "このまま確認する", primary: true, fn: onGo }]);
   }
 
   function mark(key, entity, me, done) {
+    me = String(me || "").trim();
     lsSet(key, { name: me, done: !!done });
     changed();
     if (!S.url || !S.key) return;
@@ -101,10 +137,14 @@
   (document.head || document.documentElement).appendChild(css);
 
   window.ReviewDone = {
-    init: function (o) { S.url = o.url || ""; S.key = o.key || ""; S.onChange = o.onChange || null; load(); setInterval(load, 120000); },
-    reload: load, names: names, badge: badge, guard: guard, mark: mark, modal: modal,
+    init: function (o) { S.url = o.url || ""; S.key = o.key || ""; S.onChange = o.onChange || null; S.meFn = o.me || null; load(); setInterval(load, 120000); },
+    reload: load, n: n, mine: mine, others: others, badge: badge, whoText: whoText, guard: guard, mark: mark, modal: modal,
     // prefix（"plan/" など）で始まる確認済みの対象の数（ポータルの進み具合表示用）
-    count: function (prefix) { return Object.keys(S.map).filter(function (k) { return k.indexOf(prefix) === 0 && names(k).length; }).length; },
+    count: function (prefix) {
+      var ks = {}; Object.keys(S.n).forEach(function (k) { ks[k] = 1; });
+      try { Object.keys(localStorage).forEach(function (k) { if (k.indexOf(LS) === 0) ks[k.slice(LS.length)] = 1; }); } catch (_) {}
+      return Object.keys(ks).filter(function (k) { return k.indexOf(prefix) === 0 && n(k) > 0; }).length;
+    },
     loaded: function () { return S.loaded; }
   };
 })();

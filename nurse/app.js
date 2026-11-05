@@ -109,7 +109,6 @@ var TQ=(location.search.match(/[?&]type=(soap|assess)(&|$)/)||[])[1]||"";
 if(TQ)st.type=TQ;
 if(CHECK&&/[?&]set=pri(&|$)/.test(location.search))st.pri="まず見てほしい事例";
 function dkey(c){return "ndlg/"+c.id}
-function doneNames(c){return RD?RD.names(dkey(c)):[]}
 function askName(cb){
   if(qName()){cb();return}
   var o=document.createElement("div");o.className="nmodal";
@@ -218,9 +217,9 @@ function caseBoxHtml(c){
 }
 function doneBoxHtml(c){
   if(!RD)return "";
-  var me=qName(),ns=doneNames(c),mine=me&&ns.indexOf(me)>=0;
+  var me=qName(),mine=RD.mine(dkey(c),me),who=RD.whoText(dkey(c),me);
   return '<div class="jdone">'+(mine?'<button class="jdbtn jdbtn-on" data-d="0">チェック完了済み（取り消す）</button>':'<button class="jdbtn" data-d="1">チェック完了</button>')
-    +'<div class="jdwho">'+(ns.length?'確認済み：'+esc(ns.map(function(x){return x+"様"}).join("・")):'')+'</div></div>';
+    +'<div class="jdwho">'+esc(who)+'</div></div>';
 }
 function onDoneClick(e){
   var b=e.target.closest(".jdbtn");if(!b||!curCase||!RD)return;
@@ -410,7 +409,7 @@ function showNote(){
   $("chkNote").innerHTML=CHECK?'<b>実際の看護の場面でありそうな会話か，看護記録（SOAP）の中身と欄が合っているかを見てください．</b>違和感があれば，その発話や項目に修正案を書いてください．問題なければ何も書かなくて OK です．最後に『チェック完了』を押してください．音声はおまけなので聞かなくて大丈夫です．'
     :'合成音声が付いている対話もありますが，おまけです（聞かなくてかまいません）．';
 }
-if(RD)RD.init({url:SYN.url||"",key:SYN.key||"",onChange:function(){renderList();if(curCase&&!$("detail").hidden){var box=$("detail").querySelector(".jdone");if(box)box.outerHTML=doneBoxHtml(curCase)}}});
+if(RD)RD.init({url:SYN.url||"",key:SYN.key||"",me:qName,onChange:function(){renderList();if(curCase&&!$("detail").hidden){var box=$("detail").querySelector(".jdone");if(box)box.outerHTML=doneBoxHtml(curCase)}}});
 showNote();if(CHECK)setJudge(true);
 $("nameBtn").onclick=function(){qs.del("_name");askName(function(){})};
 showName();sync.show();sync.flush();refresh();
