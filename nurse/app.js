@@ -8,7 +8,9 @@ var STL={positive:"該当",negative:"非該当",unclear:"あいまい",not_asked
 var MODEL={talk:"聞き取り",obs:"観察",both:"両方"};
 var RISK={high:"高",moderate:"中",low:"低"};
 var RCL={high:"hi",moderate:"mo",low:"lo"};
-var TYPEL={soap:"会話＋看護記録（SOAP）",assess:"情報収集の会話（記録なし）"};
+var TYPEL={soap:"会話＋看護記録（SOAP）",assess:"情報収集の会話"};
+// 情報収集の会話にも看護記録（判定時の SOAP）を付けたものがある（2026-11 吉永案）．付いていないものは「記録なし」
+function typeLabel(c){return c.type==="assess"?(c.soap?"情報収集の会話＋看護記録（SOAP）":"情報収集の会話（記録なし）"):(TYPEL[c.type]||c.type)}
 
 function roleOf(c,id){var s=(c.speakers||[]).filter(function(x){return x.id===id})[0];return s?s.role:""}
 function roleCls(r){return r==="看護師"?"nurse":r==="患者"?"patient":r==="家族"?"family":"other"}
@@ -63,7 +65,7 @@ function renderSide(){
   $("filters").innerHTML=h;
 }
 function cardHtml(c){
-  var b=(CHECK&&isPri(c)?'<span class="b pri">★ まず見てほしい</span>':'')+'<span class="b '+c.type+'">'+(TYPEL[c.type]||c.type)+'</span>'+phaseB(c);
+  var b=(CHECK&&isPri(c)?'<span class="b pri">★ まず見てほしい</span>':'')+'<span class="b '+c.type+'">'+typeLabel(c)+'</span>'+phaseB(c);
   if(c.problem)b+='<span class="b">'+esc(c.problem)+'</span>';
   if(riskOf(c))b+='<span class="b '+RCL[riskOf(c)]+'">リスク'+RISK[riskOf(c)]+'</span>';
   if(c.type==="assess")b+=missCount(c)?'<span class="b miss">聞き忘れ '+missCount(c)+'</span>':'<span class="b nomiss">聞き忘れなし</span>';
@@ -271,7 +273,7 @@ function evBadges(ev){
   return (ev||[]).map(function(x){return '<span class="ib ev" role="button" data-to="'+esc(String(x))+'" title="押すとこの発話へ移動">'+(typeof x==="number"?"発話"+x:"観察 "+esc(x))+'</span>'}).join("");
 }
 function soapHtml(c){
-  var items=(c.soap||{}).items||[],h='<h3>看護記録（SOAP）'+(c.soap&&c.soap.problem_label?'：'+esc(c.soap.problem_label):'')+'</h3><div class="soap">';
+  var items=(c.soap||{}).items||[],h='<h3>看護記録（SOAP'+(c.soap&&c.soap.timing?'・'+esc(c.soap.timing):'')+'）'+(c.soap&&c.soap.problem_label?'：'+esc(c.soap.problem_label):'')+'</h3><div class="soap">';
   ["S","O","A","P"].forEach(function(f){
     var L=items.filter(function(x){return x.field===f});
     h+='<div class="sc '+f+'"><h4>'+f+'</h4>';
@@ -312,8 +314,8 @@ function reviewHtml(c){if(CHECK)return "";
 }
 function openCase(c){
   curCase=c;
-  var d=$("detail"),b=(c.type==="soap"?soapHtml(c):assessHtml(c));
-  var badges='<span class="b '+c.type+'">'+(TYPEL[c.type]||c.type)+'</span> '+phaseB(c)+' '+(c.problem?'<span class="b">'+esc(c.problem)+'</span>':'');
+  var d=$("detail"),b=(c.type==="soap"?soapHtml(c):assessHtml(c)+(c.soap?soapHtml(c):""));
+  var badges='<span class="b '+c.type+'">'+typeLabel(c)+'</span> '+phaseB(c)+' '+(c.problem?'<span class="b">'+esc(c.problem)+'</span>':'');
   var h='<div class="panel"><div class="ph"><div><h2>'+esc(c.title||c.id)+'</h2><div class="meta">'+badges+' '+esc(c.id)+'</div></div><button class="close" aria-label="閉じる">×</button></div><div class="pb'+(CHECK?' split':'')+'">'+(CHECK?'<div class="bar bar1">▲ 会話</div><div class="pa">':'');
   h+=personsHtml(c)+'<div class="meta">場面：'+esc([c.scene,c.setting].filter(Boolean).join(" ／ "))+'<br>時期：<b>'+phaseOf(c)+'</b>（'+esc(PHD[phaseOf(c)])+'）'+(c.variation&&!CHECK?'<br>variation：'+esc(c.variation):'')+'</div>';
   if(CHECK)h+='<div class="jnote" style="margin-top:10px">違和感のある発話や項目の下の『修正案』を押して書いてください．問題なければ何も書かなくて OK です．</div>';
